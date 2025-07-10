@@ -1,0 +1,31 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*-
+# Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+from typing import Union
+
+from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
+from jiuwen.core.component.condition.condition import Condition
+
+
+class NumberCondition(Condition):
+    def __init__(self, context: Context, node_id: str, limit: Union[str, int], index_path: str = None):
+        self._context = context
+        self._index_path = index_path if index_path else node_id + BPMN_VARIABLE_POOL_SEPARATOR + "index"
+        self._limit = limit
+
+    def init(self):
+        self._context.store.write(self._index_path, 0)
+
+    def __call__(self) -> bool:
+        current_idx = self._context.store.read(self._index_path)
+        limit_num: int
+        if isinstance(self._limit, int):
+            limit_num = self._limit
+        else:
+            limit_num = self._context.store.read(self._limit)
+
+        result = current_idx < limit_num
+        if result:
+            self._context.store.write(self._index_path, current_idx + 1)
+
+        return result
