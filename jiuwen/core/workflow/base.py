@@ -3,6 +3,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import asyncio
 from dataclasses import dataclass, Field
+from enum import Enum
 from functools import partial
 from typing import Self, Dict, Any, Union, AsyncIterator, Iterator
 
@@ -28,6 +29,7 @@ class WorkflowChunk(BaseModel):
     payload: str = Field(default="")
     metadata: Dict[str, Any] = Field(default_factory=dict)
     is_final: bool = Field(default=False)
+
 
 
 class Workflow:
@@ -85,9 +87,9 @@ class Workflow:
     def add_stream_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
         self._graph.add_edge(source_node_id=src_comp_id, target_node_id=target_comp_id)
         if target_comp_id not in self._stream_edges:
-            self._stream_edges[target_comp_id] = [src_comp_id]
+            self._stream_edges[src_comp_id] = [target_comp_id]
         else:
-            self._stream_edges[target_comp_id].append(src_comp_id)
+            self._stream_edges[src_comp_id].append(target_comp_id)
         return self
 
     def add_conditional_connection(self, src_comp_id: str, router: Router) -> Self:
