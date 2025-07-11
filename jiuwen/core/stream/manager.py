@@ -48,7 +48,7 @@ class StreamWriterManager:
         self._writers[key] = writer
 
     def get_writer(self, key: StreamMode) -> Optional[StreamWriter]:
-        return self._writers.get[key]
+        return self._writers.get(key)
 
     def get_output_writer(self) -> Optional[StreamWriter]:
         return self.get_writer(BaseStreamMode.OUTPUT)

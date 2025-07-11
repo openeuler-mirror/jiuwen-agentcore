@@ -71,7 +71,7 @@ class SpanManager:
     def create_agent_span(self, parent_span: Optional[TraceAgentSpan] = None) -> TraceAgentSpan:
         return self._create_span(TraceAgentSpan, parent_span)
     
-    def create_workflow_agent(self, parent_span: Optional[TraceWorkflowSpan] = None) -> TraceWorkflowSpan:
+    def create_workflow_span(self, parent_span: Optional[TraceWorkflowSpan] = None) -> TraceWorkflowSpan:
         return self._create_span(TraceWorkflowSpan, parent_span)
     
     def update_span(self, span: Span, data: dict):

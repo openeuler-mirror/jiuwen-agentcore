@@ -36,20 +36,24 @@ class TraceBaseHandler(BaseHandler):
         
     @abstractmethod
     def _format_data(self, span: Span) -> dict:
-        return {"event_name": self.event_name(), "playload": span}
+        return {"type": self.event_name(), "payload": span}
     
     async def _emit_stream_writer(self, span):
         # TODO 替换为使用TraceStreamWriter进行输出
-        # await self._stream_writer.write(self._format_data(raw_data))
+        await self._stream_writer.write(self._format_data(span))
         
         print(f"_emit_stream_writer: {self._format_data(span)}")
-        wait_time = random.randint(0, 10)
-        await asyncio.sleep(wait_time)
-        print(f"wait_time {wait_time}")
+        # wait_time = random.randint(0, 10)
+        # await asyncio.sleep(wait_time)
+        # print(f"wait_time {wait_time}")
         
     def _send_data(self, span):
         print(f"send_data, {span}")
         asyncio.create_task(self.emit_stream_writer(copy.deepcopy(span)))
+        # loop = asyncio.get_event_loop()
+        # # loop.create_task(self.emit_stream_writer(copy.deepcopy(span)))
+        # asyncio.run_coroutine_threadsafe(self.emit_stream_writer(copy.deepcopy(span)), loop)
+        
         
     def _get_elapsed_time(self, start_time: datetime, end_time: datetime) -> str:
         """get elapsed time"""
@@ -67,7 +71,7 @@ class TraceAgentHandler(TraceBaseHandler):
         return TracerHandlerName.TRACE_AGENT.value
     
     def _format_data(self, span: TraceAgentSpan) -> dict:
-        return {"event_name": self.event_name(), "playload": span.model_dump(by_alias=True)}
+        return {"type": self.event_name(), "payload": span.model_dump(by_alias=True)}
     
     def _update_start_trace_data(self, span: TraceAgentSpan, invoke_type: str, inputs: Any, instance_info: dict,
                                  **kwargs):
@@ -225,7 +229,7 @@ class TraceWorkflowHandler(TraceBaseHandler):
         if span.end_time:
             status = NodeStatus.FINISH.value if span.outputs else NodeStatus.RUNNING.value
         span.status = status
-        return {"event_name": self.event_name(), "playload": span.model_dump(by_alias=True)}
+        return {"type": self.event_name(), "payload": span.model_dump(by_alias=True)}
     
     @trigger_event
     def on_pre_invoke(self, span: TraceWorkflowSpan, inputs: Any, component_metadata: dict,
