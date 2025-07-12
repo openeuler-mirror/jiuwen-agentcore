@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from typing import Optional, Dict, List, Callable
-from pydantic import Field, BaseModel
+from pydantic import ConfigDict, Field, BaseModel
 
 class Span(BaseModel):
     trace_id: str
@@ -13,6 +13,8 @@ class Span(BaseModel):
     invoke_id: str = Field(default=None, alias="invokeId")
     parent_invoke_id: Optional[str] = Field(default=None, alias="parentInvokeId")
     child_invokes_id: List[str] = Field(default=[], alias="childInvokes")
+    
+    model_config = ConfigDict(populate_by_name=True)
     
     def update(self, data: dict):
         for attr_name, value in data.items():
@@ -58,9 +60,9 @@ class SpanManager:
         
     def _create_span(self, span_class: Callable, parent_span = None):
         invoke_id = str(uuid.uuid4())
-        span = span_class(invoke_id=invoke_id, parent_id=parent_span.invoke_id if parent_span else None,
+        span = span_class(invoke_id=invoke_id, parent_invoke_id=parent_span.invoke_id if parent_span else None,
                           trace_id=self._trace_id)
-        
+
         if parent_span:
             parent_span.child_invokes_id.append(span.invoke_id)
             self.refresh_span_record(parent_span.invoke_id, {parent_span.invoke_id: parent_span})

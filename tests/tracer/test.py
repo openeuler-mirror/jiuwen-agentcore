@@ -1,9 +1,9 @@
 import asyncio
+import time
 import uuid
 
 import sys
 import types
-import unittest
 from unittest.mock import Mock
 
 
@@ -21,6 +21,8 @@ from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.tracer.handler import TraceAgentHandler, TraceWorkflowHandler
 from jiuwen.core.tracer.span import SpanManager
+
+
 
 def generate_tracer_id():
     """
@@ -51,19 +53,40 @@ def tracer_workflow():
     
 async def stream_output():
     async for data in stream_writer_manager.stream_output():
-        print(f"Received data: {data}")
+        print(f"Received data: {data}\n")
             
-async def test_stream_output():
-    # loop = asyncio.get_event_loop()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop=loop)
-
-    # 创建 asyncio 任务
-    task1 = loop.run_in_executor(None, tracer_agent)
-    task2 = loop.run_in_executor(None, tracer_workflow)
-    task3 = stream_output()
+class MockAgent:
+    def invoke(self):
+        tracer_agent_span = trace_agent_span_manager.create_agent_span()
+        callback_manager.trigger("tracer_agent", "on_chain_start", span=tracer_agent_span, inputs={},
+                            instance_info={"class_name": "Agent"})
+        # 模拟运行
+        time.sleep(2)
+        workflow = MockWorkflow()
+        workflow.invoke()
+        callback_manager.trigger("tracer_agent", "on_chain_end", span=tracer_agent_span, outputs={})
+        
+class MockWorkflow:
+    def invoke(self):
+        tracer_workflow_span = trace_workflow_span_manager.create_workflow_span()
+        callback_manager.trigger("tracer_workflow", "on_pre_invoke", span=tracer_workflow_span, inputs={},
+                                 component_metadata={"component_type": "Workflow"})
+        # 模拟运行
+        time.sleep(2)
+        callback_manager.trigger("tracer_workflow", "on_invoke", span=tracer_workflow_span, 
+                                 on_invoke_data={"on_invoke": "data"},
+                                 component_metadata={"component_type": "Workflow"})
+        # 模拟运行
+        time.sleep(2)
+        callback_manager.trigger("tracer_workflow", "on_post_invoke", span=tracer_workflow_span, inputs=None, 
+                                 outputs={"outputs": "result"})
+        
     
-    # 并发运行所有任务
-    await asyncio.gather(task1, task2, task3)
     
-asyncio.run(test_stream_output())
+    
+async def test_agent_workflow_trace():
+    agent = MockAgent()
+    agent.invoke()
+    await stream_output()
+    
+asyncio.run(test_agent_workflow_trace())
