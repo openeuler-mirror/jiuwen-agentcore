@@ -37,12 +37,12 @@ class PregelGraph(Graph):
             self.waits.add(node_id)
         return self
 
-    def add_edge(self, start_node_id: Union[str, list[str]], end_node_id: str) -> Self:
-        self.edges.append((start_node_id, end_node_id))
+    def add_edge(self, source_node_id: Union[str, list[str]], target_node_id: str) -> Self:
+        self.edges.append((source_node_id, target_node_id))
         return self
 
-    def add_conditional_edges(self, source: str, router: Router) -> Self:
-        self.pregel.add_conditional_edges(source, router)
+    def add_conditional_edges(self, source_node_id: str, router: Router) -> Self:
+        self.pregel.add_conditional_edges(source_node_id, router)
         return self
 
     def compile(self, context: Context) -> ExecutableGraph:

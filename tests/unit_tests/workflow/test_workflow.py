@@ -1,7 +1,8 @@
+import asyncio
 import unittest
-from venv import create
+from collections.abc import Callable
 
-from sqlalchemy.testing.suite.test_reflection import metadata
+import random
 
 from jiuwen.core.component.condition.array import ArrayCondition
 from jiuwen.core.component.loop_callback.intermediate_loop_var import IntermediateLoopVarCallback
@@ -12,6 +13,7 @@ from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.graph.base import Graph
+from jiuwen.core.graph.graph_state import GraphState
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
 from jiuwen.graph.pregel.graph import PregelGraph
 from test_node import AddTenNode, CommonNode
@@ -34,18 +36,79 @@ DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
 
 
 class WorkflowTest(unittest.TestCase):
+    def assert_workflow_invoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
+                               checker: Callable = None):
+        results = flow.invoke(inputs=inputs, context=context)
+        if expect_results is not None:
+            assert results == expect_results
+        elif checker is not None:
+            checker(results)
+
+    def assert_workflow_ainvoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
+                                checker: Callable = None):
+        loop = asyncio.get_event_loop()
+        feature = asyncio.ensure_future(flow.ainvoke(inputs=inputs, context=context))
+        loop.run_until_complete(feature)
+        if expect_results is not None:
+            assert feature.result() == expect_results
+        elif checker is not None:
+            checker(feature.result())
+
     def test_simple_workflow(self):
+        """
+        graph : start->a->end
+        """
         flow = create_flow()
-        flow.add_workflow_comp("a", Node1("a"),
-                               inputs_schema={"aa": "${start.a}", "c" : "${start.c}"})
         flow.set_start_comp("start", MockStartNode("start"),
-                            inputs_schema={"a" : "${user.inputs.a}", "b" : "${user.inputs.b}", "c": 1, "d" : [1,2,3]})
+                            inputs_schema={
+                                "a": "${user.inputs.a}",
+                                "b": "${user.inputs.b}",
+                                "c": 1,
+                                "d": [1, 2, 3]})
+        flow.add_workflow_comp("a", Node1("a"),
+                               inputs_schema={
+                                   "aa": "${start.a}",
+                                   "ac": "${start.c}"})
         flow.set_end_comp("end", MockEndNode("end"),
-                          inputs_schema={"result": "${a.aa}"})
+                          inputs_schema={
+                              "result": "${a.aa}"})
         flow.add_connection("start", "a")
         flow.add_connection("a", "end")
-        result = flow.invoke({"a": 1, "b": "bvalue"}, create_context())
-        assert result["result"] == 1
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result": 1})
+        self.assert_workflow_ainvoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result": 1})
+
+    def test_simple_workflow_with_condition(self):
+        """
+        start -> condition[a,b] -> end
+        :return:
+        """
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={"a": "${user.inputs.a}",
+                                           "b": "${user.inputs.b}",
+                                           "c": 1,
+                                           "d": [1, 2, 3]})
+
+        def router(state: GraphState):
+            condition_nodes = ["a", "b"]
+            randomIdx = random.randint(1, 2)
+            return condition_nodes[randomIdx - 1]
+
+        flow.add_conditional_connection("start", router=router)
+        flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}", "b": "${start.c}"})
+        flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
+        flow.set_end_comp("end", MockEndNode("end"), {"result1": "${a.a}", "result2": "${b.b}"})
+        flow.add_connection("a", "end")
+        flow.add_connection("b", "end")
+
+        def checker(results):
+            if "result1" in results:
+                assert results["result1"] == 1
+            elif "result2" in results:
+                assert results["result2"] == "haha"
+
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
+        self.assert_workflow_ainvoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
 
     def test_workflow_with_loop(self):
         flow = create_flow()
@@ -62,7 +125,8 @@ class WorkflowTest(unittest.TestCase):
         loop_group = LoopGroup(context)
         loop_group.add_component("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
         loop_group.add_component("2", AddTenNode("2"), inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        loop_group.add_component("3", SetVariableComponent("3", context, {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
+        loop_group.add_component("3", SetVariableComponent("3", context,
+                                                           {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         loop_group.start_nodes(["1"])
         loop_group.end_nodes(["3"])
         loop_group.add_connection("1", "2")

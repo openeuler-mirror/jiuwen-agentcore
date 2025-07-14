@@ -107,7 +107,7 @@ class Workflow:
 
     async def ainvoke(self, inputs: Input, context: Context) -> Output:
         return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context), inputs
+            None, partial(self.invoke, context = context), inputs
         )
 
     def stream(
