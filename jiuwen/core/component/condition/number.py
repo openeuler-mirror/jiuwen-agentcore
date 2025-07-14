@@ -5,6 +5,7 @@ from typing import Union
 
 from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
 from jiuwen.core.component.condition.condition import Condition
+from jiuwen.core.context.context import Context
 
 
 class NumberCondition(Condition):
@@ -12,20 +13,21 @@ class NumberCondition(Condition):
         self._context = context
         self._index_path = index_path if index_path else node_id + BPMN_VARIABLE_POOL_SEPARATOR + "index"
         self._limit = limit
+        self._node_id = node_id
 
     def init(self):
-        self._context.store.write(self._index_path, 0)
+        self._context.state.io_state.update(self._node_id, {self._index_path: 0})
 
     def __call__(self) -> bool:
-        current_idx = self._context.store.read(self._index_path)
+        current_idx = self._context.state.get(self._index_path)
         limit_num: int
         if isinstance(self._limit, int):
             limit_num = self._limit
         else:
-            limit_num = self._context.store.read(self._limit)
+            limit_num = self._context.state.get(self._limit)
 
         result = current_idx < limit_num
         if result:
-            self._context.store.write(self._index_path, current_idx + 1)
+            self._context.state.io_state.update(self._node_id, {self._index_path: current_idx + 1})
 
         return result

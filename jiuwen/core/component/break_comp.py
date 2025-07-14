@@ -2,6 +2,11 @@
 # -*- coding: UTF-8 -*-
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from abc import abstractmethod, ABC
+from typing import Iterator, AsyncIterator
+
+from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.context.context import Context
+from jiuwen.core.graph.executable import Executable, Input, Output
 
 
 class LoopController(ABC):
@@ -15,8 +20,13 @@ class LoopController(ABC):
 
 
 class BreakComponent(WorkflowComponent, Executable):
+
     def __init__(self):
+        super().__init__()
         self._loop_controller = None
+
+    def interrupt(self, message: dict):
+        pass
 
     def set_controller(self, loop_controller: LoopController):
         self._loop_controller = loop_controller

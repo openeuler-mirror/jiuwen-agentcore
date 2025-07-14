@@ -4,12 +4,11 @@
 from copy import deepcopy
 from typing import Union, Optional, Any, Callable
 
-from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.context.state import CommitState, StateLike, State
 from jiuwen.core.context.utils import extract_origin_key, get_value_by_nested_path, update_dict
 
 
-class InMemoryState(StateLike):
+class InMemoryStateLike(StateLike):
     def __init__(self):
         self._state: dict = dict()
 
@@ -28,18 +27,18 @@ class InMemoryState(StateLike):
                 result.append(self.get(item))
             return result
         else:
-            raise JiuWenBaseException(1, "key type is not support")
+            return key
 
     def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
         return transformer(self._state)
 
     def update(self, node_id: str, data: dict) -> None:
-        update_dict(self._state, data)
+        update_dict(data, self._state)
 
 
 class InMemoryCommitState(CommitState):
     def __init__(self):
-        self._state = InMemoryState()
+        self._state = InMemoryStateLike()
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
@@ -72,7 +71,7 @@ class InMemoryState(State):
     def __init__(self):
         super().__init__(io_state=InMemoryCommitState(),
                          global_state=InMemoryCommitState(),
-                         trace_state=InMemoryState(),
-                         comp_state=InMemoryState())
+                         trace_state=InMemoryStateLike(),
+                         comp_state=InMemoryStateLike())
 
 

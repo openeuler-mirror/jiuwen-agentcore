@@ -5,6 +5,7 @@ from typing import Callable, Union
 
 from jiuwen.core.component.condition.condition import Condition, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
+from jiuwen.core.context.context import Context
 
 
 class Branch:

@@ -17,19 +17,18 @@ from jiuwen.core.graph.executable import Executable, Input, Output
 
 
 class WorkflowConfig(BaseModel):
-    metadata: BaseModel = Field(default=None)
+    metadata: BaseModel
 
 
 class WorkflowOutput(BaseModel):
-    result: str = Field(default="")
+    result: str
 
 
 class WorkflowChunk(BaseModel):
-    chunk_id: str = Field(default="")
-    payload: str = Field(default="")
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    is_final: bool = Field(default=False)
-
+    chunk_id: str
+    payload: str
+    metadata: Dict[str, Any]
+    is_final: bool
 
 
 class Workflow:
@@ -67,7 +66,7 @@ class Workflow:
         self._comp_io_schemas[start_comp_id] = (inputs_schema, output_schema)
         return self
 
-    def set_end_component(
+    def set_end_comp(
             self,
             end_comp_id: str,
             component: EndComponent,
@@ -81,11 +80,11 @@ class Workflow:
         return self
 
     def add_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
-        self._graph.add_edge(source_node_id=src_comp_id, target_node_id=target_comp_id)
+        self._graph.add_edge(src_comp_id, target_comp_id)
         return self
 
     def add_stream_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
-        self._graph.add_edge(source_node_id=src_comp_id, target_node_id=target_comp_id)
+        self._graph.add_edge(src_comp_id, target_comp_id)
         if target_comp_id not in self._stream_edges:
             self._stream_edges[src_comp_id] = [target_comp_id]
         else:
@@ -102,12 +101,13 @@ class Workflow:
             return None
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
+        context.state.io_state.commit()
         compiled_graph.invoke(inputs, context)
         return context.state.get_outputs(self._end_comp_id)
 
     async def ainvoke(self, inputs: Input, context: Context) -> Output:
         return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context), inputs
+            None, partial(self.invoke, context = context), inputs
         )
 
     def stream(
