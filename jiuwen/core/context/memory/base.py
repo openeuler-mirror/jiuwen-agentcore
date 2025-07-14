@@ -9,7 +9,7 @@ from jiuwen.core.context.state import CommitState, StateLike, State
 from jiuwen.core.context.utils import extract_origin_key, get_value_by_nested_path, update_dict
 
 
-class InMemoryState(StateLike):
+class InMemoryStateLike(StateLike):
     def __init__(self):
         self._state: dict = dict()
 
@@ -39,7 +39,7 @@ class InMemoryState(StateLike):
 
 class InMemoryCommitState(CommitState):
     def __init__(self):
-        self._state = InMemoryState()
+        self._state = InMemoryStateLike()
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
@@ -72,7 +72,7 @@ class InMemoryState(State):
     def __init__(self):
         super().__init__(io_state=InMemoryCommitState(),
                          global_state=InMemoryCommitState(),
-                         trace_state=InMemoryState(),
-                         comp_state=InMemoryState())
+                         trace_state=InMemoryStateLike(),
+                         comp_state=InMemoryStateLike())
 
 
