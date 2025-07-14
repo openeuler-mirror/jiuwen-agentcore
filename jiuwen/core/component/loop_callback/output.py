@@ -3,8 +3,9 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from typing import Any
 
-from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
+from jiuwen.core.context.context import Context
+from jiuwen.core.context.utils import is_ref_path, extract_origin_key, NESTED_PATH_SPLIT
 
 
 class OutputCallback(LoopCallback):
@@ -12,16 +13,15 @@ class OutputCallback(LoopCallback):
                  round_result_root: str = None, result_root: str = None, intermediate_loop_var_root: str = None):
         self._context = context
         self._outputs_format = outputs_format
-        self._round_result_root = round_result_root if round_result_root else node_id + BPMN_VARIABLE_POOL_SEPARATOR + "round"
+        self._round_result_root = round_result_root if round_result_root else node_id + NESTED_PATH_SPLIT + "round"
         self._result_root = result_root if result_root else node_id
-        self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root else node_id + BPMN_VARIABLE_POOL_SEPARATOR + "intermediateLoopVar"
+        self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root else node_id + NESTED_PATH_SPLIT + "intermediateLoopVar"
 
     def _generate_results(self, results: dict[str, list[Any]]):
         for key, value in self._outputs_format.items():
-            if isinstance(value, str):
-                ref_str = get_ref_str(value)
-                if ref_str != "":
-                    results[ref_str] = []
+            if isinstance(value, str) and is_ref_path(value):
+                ref_str = extract_origin_key(value)
+                results[ref_str] = []
             elif isinstance(value, dict):
                 self._generate_results(results)
 

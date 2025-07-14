@@ -5,6 +5,7 @@ from typing import Union
 
 from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
 from jiuwen.core.component.condition.condition import Condition
+from jiuwen.core.context.context import Context
 
 
 class NumberCondition(Condition):

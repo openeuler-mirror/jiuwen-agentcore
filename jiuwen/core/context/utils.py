@@ -58,6 +58,8 @@ def split_nested_path(nested_key: str) -> list:
                 final_list.append(match.group(1))
     return final_list
 
+def is_ref_path(path: str) -> bool:
+    return len(path) > 3 and path.startswith("${") and path.endswith("}")
 
 def extract_origin_key(key: str) -> str:
     """

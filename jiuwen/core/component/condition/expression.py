@@ -4,6 +4,7 @@
 import re
 
 from jiuwen.core.component.condition.condition import Condition
+from jiuwen.core.context.context import Context
 
 
 class ExpressionCondition(Condition):

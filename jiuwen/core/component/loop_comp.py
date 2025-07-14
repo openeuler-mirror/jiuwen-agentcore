@@ -8,11 +8,15 @@ from typing import Iterator, AsyncIterator, Self, Union, Callable
 from langgraph.constants import END, START
 
 from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
-from jiuwen.core.component.break_comp import BreakComponent
+
+from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
-from jiuwen.core.graph.base import Graph
+from jiuwen.core.context.context import Context
+from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
+from jiuwen.core.graph.executable import Output, Input, Executable
 from jiuwen.graph.factory import GraphFactory
 
 
@@ -37,9 +41,8 @@ class LoopGroup:
         self._context = context
         self._graph = graph if graph else GraphFactory().create_graph()
 
-    def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False,
-                      inputs: dict = None) -> Self:
-        component.add_component(self._graph, node_id, inputs, wait_for_all=wait_for_all)
+    def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False) -> Self:
+        component.add_component(self._graph, node_id, wait_for_all=wait_for_all)
         return self
 
     def start_nodes(self, nodes: list[str]) -> Self:
@@ -71,10 +74,9 @@ FIRST_IN_LOOP = "_first_in_loop"
 class LoopComponent(WorkflowComponent, LoopController):
 
     def __init__(self, context: Context, node_id: str, body: Union[Executable, LoopGroup],
-                 condition: Union[str, Callable[[], bool], Condition] = None,
-                 context_root: str = None,
-                 break_nodes: list[BreakComponent] = None,
-                 callbacks: list[LoopCallback] = None, graph: Graph = None):
+                 condition: Union[str, Callable[[], bool], Condition] = None, context_root: str = None,
+                 break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None, graph: Graph = None):
+        super().__init__()
         if context is None:
             raise ValueError("context cannot be None")
         if context_root is None:
