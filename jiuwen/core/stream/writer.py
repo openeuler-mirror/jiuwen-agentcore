@@ -64,7 +64,7 @@ class TraceStreamWriter(StreamWriter[dict, TraceSchema]):
 class CustomSchema(BaseModel):
 
     def __init__(self, **kwargs):
-        super().__init_(**kwargs)
+        super().__init__(**kwargs)
 
     class Config:
         arbitrary_types_allowed = True
