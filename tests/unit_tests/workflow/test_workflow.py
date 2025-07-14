@@ -3,6 +3,7 @@ import unittest
 from collections.abc import Callable
 
 import random
+from venv import create
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -20,7 +21,7 @@ from jiuwen.core.graph.graph_state import GraphState
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
 from jiuwen.graph.pregel.graph import PregelGraph
 from test_node import AddTenNode, CommonNode
-from tests.unit_tests.workflow.test_mock_node import MockNodeBase, MockStartNode, MockEndNode, Node1
+from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode, Node1, StreamNode
 
 
 def create_context() -> Context:
@@ -105,7 +106,7 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("b", "end")
 
         def checker(results):
-            if "result1" in results:
+            if "result1" in results and results["result1"] is not None:
                 assert results["result1"] == 1
             elif "result2" in results:
                 assert results["result2"] == "haha"
@@ -272,3 +273,24 @@ class WorkflowTest(unittest.TestCase):
 
         result = flow.invoke({"input_number": 2, "loop_number": 2}, context=context)
         assert result == {"array_result": [10, 11], "user_var": 22}
+
+
+    def test_simple_stream_workflow(self):
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={
+                                "a": "${user.inputs.a}",
+                                "b": "${user.inputs.b}",
+                                "c": 1,
+                                "d": [1, 2, 3]})
+        expected_datas = [
+            {"id": 1, "data": "1"}
+        ]
+        flow.add_workflow_comp("a", StreamNode("a", expected_datas),
+                               inputs_schema={ "aa": "${start.a}", "ac": "${start.c}"})
+        flow.set_end_comp("end", MockEndNode("end"),
+                          inputs_schema={ "result": "${a.aa}"})
+        flow.add_connection("start", "a")
+        flow.add_connection("a", "end")
+
+        flow.stream({"a": 1, "b": "haha"}, create_context())

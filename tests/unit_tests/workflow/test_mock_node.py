@@ -1,4 +1,7 @@
+import asyncio
 from typing import Iterator, AsyncIterator, Callable
+
+from tenacity import sleep
 
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
 from jiuwen.core.context.context import Context
@@ -56,3 +59,22 @@ class Node1(MockNodeBase):
         context.state.set_outputs(self.node_id, inputs)
         print("node1: output = " + str(inputs))
         return inputs
+
+
+class StreamNode(MockNodeBase):
+    def __init__(self, node_id: str, datas: list[dict]):
+        super().__init__(node_id)
+        self._node_id = node_id
+        self._datas:list[dict] = datas
+
+    def stream(self, inputs: Input, context: Context) -> Output:
+        for data in self._datas:
+            sleep(1)
+            context.stream_writer_manager.get_custom_writer().write(data)
+            yield data
+
+    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        for data in self._datas:
+            await asyncio.sleep(1)
+            await context.stream_writer_manager.get_custom_writer().write(data)
+            yield data

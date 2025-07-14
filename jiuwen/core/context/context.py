@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.state import State
 from jiuwen.core.context.store import Store
+from jiuwen.core.stream.base import StreamMode
+from jiuwen.core.stream.emitter import StreamEmitter
+from jiuwen.core.stream.manager import StreamWriterManager
 
 
 class Context(ABC):
@@ -17,17 +20,18 @@ class Context(ABC):
         self._state = state
         self._store = store
         self._tracer = tracer
+        self._stream_emitter = None
         self._stream_writer_manager = None
         self._workflow_config: BaseModel = None
         self._queue_manager = None
-        self._stream_modes: list[str] = None
 
     def init(self, io_schemas: dict[str, tuple[dict, dict]], stream_edges: dict[str, list[str]] = None,
-             workflow_config: BaseModel = None, stream_modes: list[str] = None) -> bool:
+             workflow_config: BaseModel = None, stream_modes: list[StreamMode] = None) -> bool:
         if self.config is not None and not self.config.init(io_schemas, stream_edges):
             return False
+        self._stream_emitter = StreamEmitter()
+        self._stream_writer_manager = StreamWriterManager(stream_emitter=self._stream_emitter, modes=stream_modes)
         self._workflow_config = workflow_config
-        self._stream_modes = stream_modes
         return True
 
     @property
@@ -46,7 +50,6 @@ class Context(ABC):
     def tracer(self) -> Any:
         return self._tracer
 
-    def get_stream_writer(self, mode: str) -> Optional[Any]:
-        if mode not in self._stream_modes:
-            return None
-        return self._stream_writer_manager.get_writer(key=mode)
+    @property
+    def stream_writer_manager(self) -> StreamWriterManager:
+        return self._stream_writer_manager
