@@ -18,6 +18,11 @@ class StatusCode(Enum):
         102053,
         "Errors occur when formatting the template content due to wrong format")
 
+    # Tool组件 101741-101770
+    TOOL_COMPONENT_PARAM_CHECK_ERROR = (101742, 'Tool component parameter check error')
+    TOOL_COMPONENT_INPUTS_ERROR = (101743, 'Tool component inputs not defined')
+    TOOL_COMPONENT_EXECUTE_ERROR = (101745, "Tool component execute error")
+
     # Prompt 模板管理 102100 - 102149
     PROMPT_TEMPLATE_DUPLICATED_ERROR = (102101, "Template duplicated")
     PROMPT_TEMPLATE_NOT_FOUND_ERROR = (102102, "Template not found")
