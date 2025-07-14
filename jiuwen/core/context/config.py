@@ -62,7 +62,7 @@ class Config(ABC):
         :param source_node_id: source node id
         :param target_node_id: target node id
         """
-        self._stream_edges[target_node_id].append(source_node_id)
+        self._stream_edges[source_node_id].append(target_node_id)
 
     def set_stream_edges(self, edges: dict[str, list[str]]) -> None:
         """

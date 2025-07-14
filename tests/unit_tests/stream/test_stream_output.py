@@ -1,6 +1,6 @@
 import asyncio
 import unittest
-from typing import AsyncIterator, Any, Type
+from typing import AsyncIterator, Type
 
 from pydantic import BaseModel
 
@@ -155,8 +155,8 @@ class TestStreamOutput(unittest.IsolatedAsyncioTestCase):
 
         async def write_data():
             async for mock_data in mock_stream_output():
-                trace_writer = self.manager.get_trace_writer()
-                await trace_writer.write(mock_data)
+                mock_writer = self.manager.get_writer(MockStreamMode.MOCK)
+                await mock_writer.write(mock_data)
             await self.emitter.close()
 
         async def read_data():
