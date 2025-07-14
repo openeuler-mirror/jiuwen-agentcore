@@ -10,7 +10,7 @@ import threading
 import copy
 from os.path import dirname, join
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Any, Tuple
+from typing import List, Optional, Tuple
 
 from logging import getLogger
 logger = getLogger(__name__)
@@ -458,8 +458,6 @@ class JointOptimizer:
             response = self.chat_completion(examples_optimization_template)
             return self.extract_examples_from_response(response)
         except (KeyError, TypeError, AttributeError) as e:
-            import traceback
-            traceback.print_exc()
             logger.warning(f"Error occur while generating best reasoning examples: {e}")
             return []
 
@@ -578,8 +576,6 @@ class JointOptimizer:
             logger.info(f"Joint optimization task {task_info.task_id} stopped.")
             return
         except Exception as e:
-            import traceback
-            traceback.print_exc()
             context[TaskStatus.TASK_STATUS] = TaskStatus.TASK_FAILED
             context["run_time"] = calculate_runtime(context.get("create_time", ""))
             checkpoint = ContextManager().get_checkpoint(task_info.task_id) or context

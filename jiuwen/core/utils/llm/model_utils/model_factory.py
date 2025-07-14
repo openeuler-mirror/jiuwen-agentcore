@@ -67,7 +67,6 @@ class ModelFactory(metaclass=Singleton):
 
     def get_model(self, model_provider: str, model_info: BaseModelInfo) -> BaseChatModel:
         model_cls = self.model_map.get(model_provider.lower())
-        print(model_cls)
         if not model_cls:
             available_models = ", ".join(self.model_map.keys())
             raise ValueError(f"Unavailable model provider: {model_provider}. Available models: {available_models}")
