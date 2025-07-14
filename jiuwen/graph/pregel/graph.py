@@ -77,16 +77,16 @@ class CompiledGraph(ExecutableGraph):
         self._compiledStateGraph = compiledStateGraph
 
     def invoke(self, inputs: Input, context: Context) -> Output:
-        return self._compiledStateGraph.invoke({"source_node_id": ""})
+        return self._compiledStateGraph.invoke({"source_node_id": None})
 
     def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
-        return self._compiledStateGraph.stream({"source_node_id": ""})
+        return self._compiledStateGraph.stream({"source_node_id": None})
 
     async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return self._compiledStateGraph.ainvoke({"source_node_id": ""})
+        return self._compiledStateGraph.ainvoke({"source_node_id": None})
 
     async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        return self._compiledStateGraph.astream({"source_node_id": ""})
+        return self._compiledStateGraph.astream({"source_node_id": None})
 
     def interrupt(self, message: dict):
         return

@@ -4,7 +4,6 @@
 from copy import deepcopy
 from typing import Union, Optional, Any, Callable
 
-from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.context.state import CommitState, StateLike, State
 from jiuwen.core.context.utils import extract_origin_key, get_value_by_nested_path, update_dict
 
@@ -28,7 +27,7 @@ class InMemoryStateLike(StateLike):
                 result.append(self.get(item))
             return result
         else:
-            raise JiuWenBaseException(1, "key type is not support")
+            return key
 
     def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
         return transformer(self._state)
@@ -43,8 +42,6 @@ class InMemoryCommitState(CommitState):
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
-        if data == 1:
-            print("tmp")
         if node_id not in self._updates:
             self._updates[node_id] = []
         self._updates[node_id].append(data)

@@ -36,10 +36,16 @@ DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
 class WorkflowTest(unittest.TestCase):
     def test_simple_workflow(self):
         flow = create_flow()
-        flow.add_workflow_comp("a", Node1("a"), inputs_schema={})
-        flow.set_start_comp("start", MockStartNode("start"))
-        flow.set_end_comp("end", MockEndNode("end"))
-        flow.invoke({}, create_context())
+        flow.add_workflow_comp("a", Node1("a"),
+                               inputs_schema={"aa": "${start.a}", "c" : "${start.c}"})
+        flow.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={"a" : "${user.inputs.a}", "b" : "${user.inputs.b}", "c": 1, "d" : [1,2,3]})
+        flow.set_end_comp("end", MockEndNode("end"),
+                          inputs_schema={"result": "${a.aa}"})
+        flow.add_connection("start", "a")
+        flow.add_connection("a", "end")
+        result = flow.invoke({"a": 1, "b": "bvalue"}, create_context())
+        assert result["result"] == 1
 
     def test_workflow_with_loop(self):
         flow = create_flow()

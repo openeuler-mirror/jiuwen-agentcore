@@ -21,7 +21,7 @@ class Vertex:
     def __call__(self, state: GraphState) -> Output:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
-        inputs = self.__pre_invoke__(state)
+        inputs = self.__pre_invoke__()
         is_stream = self.__is_stream__(state)
         try:
             if is_stream:
@@ -34,7 +34,7 @@ class Vertex:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
         return {"source_node_id": self._node_id}
 
-    def __pre_invoke__(self, state:GraphState) -> Optional[dict]:
+    def __pre_invoke__(self) -> Optional[dict]:
         inputs_schema = self._context.config.get_inputs_schema(self._node_id)
         inputs = self._context.state.get_inputs(inputs_schema) if inputs_schema else None
         if self._context.tracer is not None:

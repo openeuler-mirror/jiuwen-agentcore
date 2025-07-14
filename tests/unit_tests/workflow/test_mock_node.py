@@ -33,13 +33,18 @@ class MockStartNode(StartComponent, MockNodeBase):
         super().__init__(node_id)
 
     def invoke(self, inputs: Input, context: Context) -> Output:
+        context.state.set_outputs(self.node_id, inputs)
+        print("start: output = " + str(inputs))
         return inputs
 
 class MockEndNode(EndComponent, MockNodeBase):
     def __init__(self, node_id: str):
         super().__init__(node_id)
+        self.node_id = node_id
 
     def invoke(self, inputs: Input, context: Context) -> Output:
+        context.state.set_outputs(self.node_id, inputs)
+        print("endNode: output = " + str(inputs))
         return inputs
 
 
@@ -48,4 +53,6 @@ class Node1(MockNodeBase):
         super().__init__(node_id)
 
     def invoke(self, inputs: Input, context: Context) -> Output:
-        return {}
+        context.state.set_outputs(self.node_id, inputs)
+        print("node1: output = " + str(inputs))
+        return inputs
