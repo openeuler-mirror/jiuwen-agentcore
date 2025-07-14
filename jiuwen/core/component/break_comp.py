@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+import asyncio
 from abc import abstractmethod, ABC
+from functools import partial
 from typing import Iterator, AsyncIterator
 
 from jiuwen.core.component.base import WorkflowComponent
