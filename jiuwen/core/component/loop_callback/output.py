@@ -18,24 +18,24 @@ class OutputCallback(LoopCallback):
         self._result_root = result_root if result_root else node_id
         self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root else node_id + NESTED_PATH_SPLIT + "intermediateLoopVar"
 
-    def _generate_results(self, results: dict[str, list[Any]]):
+    def _generate_results(self, results: list[(str, list[Any])]):
         for key, value in self._outputs_format.items():
             if isinstance(value, str) and is_ref_path(value):
                 ref_str = extract_origin_key(value)
-                results[ref_str] = []
+                results.append ((ref_str, []))
             elif isinstance(value, dict):
                 self._generate_results(results)
 
     def first_in_loop(self):
-        _results: dict[str, list[Any]] = {}
+        _results: list[(str, list[Any])] = []
         self._generate_results(_results)
-        self._context.state.update(self._round_result_root, _results)
+        self._context.state.update(self._node_id, {self._round_result_root: _results})
 
     def out_loop(self):
-        results: dict[str, list[Any]] = self._context.state.get(self._round_result_root)
-        if not isinstance(results, dict):
+        results: list[(str, list[Any])] = self._context.state.get(self._round_result_root)
+        if not isinstance(results, list):
             raise RuntimeError("error results in loop process")
-        for path, array in results.items():
+        for (path, array) in results:
             self._context.state.update(self._node_id, {path: array})
         result = self._context.state.get_inputs(self._outputs_format)
         self._context.state.update(self._node_id, {self._round_result_root : {}})

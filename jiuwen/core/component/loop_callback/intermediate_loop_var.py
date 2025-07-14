@@ -29,10 +29,10 @@ class IntermediateLoopVarCallback(LoopCallback):
                     update = value
             else:
                 update = value
-            self._context.state.update(self._node_id, {path: update})
+            self._context.state.io_state.update(self._node_id, {path: update})
 
     def out_loop(self):
-        self._context.state.update(self._node_id, {self._intermediate_loop_var_root: {}})
+        self._context.state.io_state.update(self._node_id, {self._intermediate_loop_var_root: {}})
 
     def start_round(self):
         pass

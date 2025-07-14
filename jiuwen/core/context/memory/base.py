@@ -34,7 +34,7 @@ class InMemoryStateLike(StateLike):
         return transformer(self._state)
 
     def update(self, node_id: str, data: dict) -> None:
-        update_dict(self._state, data)
+        update_dict(data, self._state)
 
 
 class InMemoryCommitState(CommitState):
@@ -43,6 +43,8 @@ class InMemoryCommitState(CommitState):
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
+        if data == 1:
+            print("tmp")
         if node_id not in self._updates:
             self._updates[node_id] = []
         self._updates[node_id].append(data)

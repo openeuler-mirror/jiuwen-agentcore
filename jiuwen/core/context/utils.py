@@ -20,6 +20,9 @@ def update_dict(update: dict, source: dict) -> None:
     :param update: update dict, which key is nested
     :param source: source dict, which key must not be nested
     """
+    if update == 1:
+        print("error")
+
     for key, value in update.items():
         current_key, current = root_to_path(key, source, create_if_absent=True)
         update_by_key(current_key, value, current)
@@ -27,8 +30,8 @@ def update_dict(update: dict, source: dict) -> None:
 
 def get_value_by_nested_path(nested_key: str, source: dict) -> Optional[Any]:
     result = root_to_path(nested_key, source)
-    if result is None:
-        return result
+    if result[1] is None:
+        return None
     return result[1][result[0]]
 
 

@@ -29,6 +29,8 @@ class CommonNode(Executable, WorkflowComponent):
     def interrupt(self, message: dict):
         pass
 
+    def to_executable(self) -> Executable:
+        return self
 
 class AddTenNode(Executable, WorkflowComponent):
 
@@ -50,3 +52,6 @@ class AddTenNode(Executable, WorkflowComponent):
 
     def interrupt(self, message: dict):
         pass
+
+    def to_executable(self) -> Executable:
+        return self

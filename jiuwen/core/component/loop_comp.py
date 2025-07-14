@@ -151,6 +151,8 @@ class LoopComponent(WorkflowComponent, LoopController):
             else:
                 callback.out_loop()
 
+        self._context.state.io_state.commit()
+        self._context.state.global_state.commit()
         if continue_loop:
             return self._in_loop
 

@@ -16,7 +16,7 @@ class NumberCondition(Condition):
         self._node_id = node_id
 
     def init(self):
-        self._context.state.update(self._node_id, {self._index_path: 0})
+        self._context.state.io_state.update(self._node_id, {self._index_path: 0})
 
     def __call__(self) -> bool:
         current_idx = self._context.state.get(self._index_path)
@@ -28,6 +28,6 @@ class NumberCondition(Condition):
 
         result = current_idx < limit_num
         if result:
-            self._context.state.update(self._node_id, {self._index_path: current_idx + 1})
+            self._context.state.io_state.update(self._node_id, {self._index_path: current_idx + 1})
 
         return result

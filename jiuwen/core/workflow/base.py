@@ -101,6 +101,7 @@ class Workflow:
             return None
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
+        context.state.io_state.commit()
         compiled_graph.invoke(inputs, context)
         return context.state.get_outputs(self._end_comp_id)
 

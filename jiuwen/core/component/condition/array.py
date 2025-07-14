@@ -20,8 +20,8 @@ class ArrayCondition(Condition):
         self._arrays_root = array_root if array_root else node_id + NESTED_PATH_SPLIT + "arrLoopVar"
 
     def init(self):
-        self._context.state.update(self._node_id, {self._index_path: 0})
-        self._context.state.update(self._node_id, {self._arrays_root: {}})
+        self._context.state.io_state.update(self._node_id, {self._index_path: 0})
+        self._context.state.io_state.update(self._node_id, {self._arrays_root: {}})
 
     def __call__(self) -> bool:
         current_idx = self._context.state.get(self._index_path)
@@ -45,8 +45,6 @@ class ArrayCondition(Condition):
                 return False
             updates[key_path] = arr[current_idx]
 
-        self._context.state.update(self._node_id, {self._index_path: current_idx + 1})
-        for path, update in updates.items():
-            self._context.state.update(self._node_id, update)
-
+        self._context.state.io_state.update(self._node_id, {self._index_path: current_idx + 1})
+        self._context.state.io_state.update(self._node_id, updates)
         return True

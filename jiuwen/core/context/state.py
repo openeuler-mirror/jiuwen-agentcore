@@ -63,7 +63,10 @@ class State(ABC):
     def get(self, key: Union[str, dict]) -> Optional[Any]:
         if self._global_state is None:
             return None
-        return self._global_state.get(key)
+        value = self._global_state.get(key)
+        if value is None:
+            return self._io_state.get(key)
+        return value
 
     def update(self, node_id: str, data: dict) -> None:
         if self._global_state is None:
@@ -85,10 +88,10 @@ class State(ABC):
             return
         self._comp_state.update(node_id, data)
 
-    def set_user_inputs(self, inputs: dict) -> None:
+    def set_user_inputs(self, inputs: Any) -> None:
         if self._io_state is None:
             return
-        self._io_state.update({"user": {"inputs": inputs}})
+        self._io_state.update("user", {"user.inputs": inputs})
 
     def get_inputs(self, input_schemas: dict) -> dict:
         if self._io_state is None:
@@ -101,7 +104,7 @@ class State(ABC):
         return self._io_state.get(node_id)
 
     def set_outputs(self, node_id: str, outputs: dict) -> None:
-        if self._io_state is None:
+        if self._io_state is None or outputs is None:
             return
-        return self._io_state.update(node_id, outputs)
+        return self._io_state.update(node_id, {node_id: outputs})
 

@@ -66,7 +66,7 @@ class WorkflowTest(unittest.TestCase):
         intermediate_callback = IntermediateLoopVarCallback(context, "l",
                                                             {"user_var": "${user.inputs.input_number}"})
 
-        loop = LoopComponent(context, "l", loop_group, ArrayCondition(context, "l", {"item": "${a.loop_array}"}),
+        loop = LoopComponent(context, "l", loop_group, ArrayCondition(context, "l", {"item": "${a.array}"}),
                              callbacks=[output_callback, intermediate_callback])
 
         flow.add_workflow_comp("l", loop)

@@ -28,6 +28,7 @@ class Context(ABC):
             return False
         self._workflow_config = workflow_config
         self._stream_modes = stream_modes
+        return True
 
     @property
     def config(self) -> Config:

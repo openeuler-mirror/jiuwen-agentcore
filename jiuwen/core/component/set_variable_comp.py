@@ -44,3 +44,6 @@ class SetVariableComponent(WorkflowComponent, Executable):
 
     def interrupt(self, message: dict):
         pass
+
+    def to_executable(self) -> Executable:
+        return self

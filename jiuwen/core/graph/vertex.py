@@ -19,7 +19,7 @@ class Vertex:
         return True
 
     def __call__(self, state: GraphState) -> Output:
-        if self._context is None:
+        if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
         inputs = self.__pre_invoke__(state)
         is_stream = self.__is_stream__(state)
@@ -36,13 +36,15 @@ class Vertex:
 
     def __pre_invoke__(self, state:GraphState) -> Optional[dict]:
         inputs_schema = self._context.config.get_inputs_schema(self._node_id)
-        inputs = self._context.state.get_inputs(inputs_schema)
+        inputs = self._context.state.get_inputs(inputs_schema) if inputs_schema else None
         if self._context.tracer is not None:
             self.__trace_inputs__(inputs)
         return inputs
 
     def __post_invoke__(self, results: Optional[dict]) -> None:
-        self._context.state.set_outputs(results)
+        self._context.state.set_outputs(self._node_id, results)
+        self._context.state.io_state.commit()
+        self._context.state.global_state.commit()
         pass
 
     def __post_stream__(self, results_iter: Any) -> None:
