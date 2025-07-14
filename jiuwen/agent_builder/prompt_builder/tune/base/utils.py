@@ -4,17 +4,17 @@
 prompt optimization utils
 """
 
-import os
 from typing import List, Dict, Optional, Any, Union
 from datetime import datetime, timezone, timedelta
 
-from pydantic import BaseModel, field_validator, Field, FieldValidationInfo
+from pydantic import BaseModel, Field, FieldValidationInfo
 import yaml
 
-from jiuwen.agent_builder.prompt_builder.tune.base.exception import OnStopException
+from jiuwen.core.utils.llm.base import BaseModelInfo
+from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
 from jiuwen.agent_builder.prompt_builder.tune.common.exception import JiuWenBaseException, StatusCode
 from jiuwen.agent_builder.prompt_builder.tune.base.case import Case
-from jiuwen.agent_builder.prompt_builder.tune.base.constant import TuneConstant, TaskStatus
+from jiuwen.agent_builder.prompt_builder.tune.base.constant import TuneConstant
 
 
 class TaskInfo(BaseModel):
@@ -82,29 +82,6 @@ class LLMModelInfo(BaseModel):
     api_key: str = Field(default="", min_length=0, max_length=256)
 
 
-class QwenLLM:
-    def __init__(self, model_info: LLMModelInfo):
-        self.url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
-        self.api_key = "sk-f9410e0700c94022a16b78341e860c45"
-        self.model_name = model_info.model
-
-    def chat(self, messages):
-        import requests
-        body = {
-            "messages": messages,
-            "model": self.model_name,
-            "stream": False
-        }
-        headers = {
-            "Authorization": f"{self.api_key}",
-        }
-        response = requests.post(self.url, json=body, headers=headers)
-        if response.status_code != 200:
-            print(response.text)
-            raise Exception(response.text)
-        content = response.json().get("choices")[0].get("message").get("content")
-        return dict(content=content)
-
 class LLMModelProcess:
     """LLM invoke process"""
     def __init__(self, llm_model_info: LLMModelInfo):
@@ -115,12 +92,24 @@ class LLMModelProcess:
                     error_msg="prompt optimization llm config is missing"
                 )
             )
-        self.chat_llm = None
-        self.model_info = llm_model_info
+        if not llm_model_info.model_source or not llm_model_info.model:
+            raise JiuWenBaseException(
+                error_code=StatusCode.LLM_CONFIG_MISS_ERROR.code,
+                message=StatusCode.LLM_CONFIG_MISS_ERROR.errmsg.format(
+                    error_msg="prompt optimization llm config is missing"
+                )
+            )
+        model_info = BaseModelInfo(
+            api_key=llm_model_info.api_key,
+            api_base=llm_model_info.url,
+            model=llm_model_info.model
+        )
+        self.chat_llm = ModelFactory().get_model(llm_model_info.model_source, model_info)
 
     def chat(self, messages: List[Any]) -> Dict:
         """chat"""
-        return QwenLLM(self.model_info).chat(messages)
+        reply_message = self.chat_llm.invoke(messages)
+        return dict(content=reply_message.content)
 
 
 def load_yaml_to_dict(file_path: str) -> Dict:

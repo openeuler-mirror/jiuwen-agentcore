@@ -8,7 +8,7 @@ from pydantic import Field, BaseModel
 from jiuwen.core.utils.llm.base import BaseChatModel, BaseModelInfo
 from jiuwen.core.utils.llm.messages import AIMessage
 from jiuwen.core.utils.llm.messages_chunk import AIMessageChunk
-from jiuwen.core.utils.llm.model_utils.defult_model import RequestChatModel
+from jiuwen.core.utils.llm.model_utils.default_model import RequestChatModel
 
 
 class Siliconflow(BaseModel, BaseChatModel):
