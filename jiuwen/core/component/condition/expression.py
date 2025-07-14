@@ -20,7 +20,7 @@ class ExpressionCondition(Condition):
         matches = re.findall(pattern, self._expression)
         inputs = {}
         for match in matches:
-            inputs[match] = self._context.store.read(match[2:-1])
+            inputs[match] = self._context.state.get(match[2:-1])
         return self._evalueate_expression(self._expression, inputs)
 
     def _evalueate_expression(self, expression, inputs) -> bool:

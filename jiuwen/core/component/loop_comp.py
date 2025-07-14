@@ -7,14 +7,13 @@ from typing import Iterator, AsyncIterator, Self, Union, Callable
 
 from langgraph.constants import END, START
 
-from jiuwen.core.common.constants.constant import BPMN_VARIABLE_POOL_SEPARATOR
-
 from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
 from jiuwen.core.context.context import Context
+from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
 from jiuwen.core.graph.executable import Output, Input, Executable
 from jiuwen.graph.factory import GraphFactory
@@ -35,14 +34,19 @@ class EmptyExecutable(Executable):
     async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         yield await self.ainvoke(inputs, context)
 
+    def interrupt(self, message: dict):
+        return
+
 
 class LoopGroup:
     def __init__(self, context: Context, graph: Graph = None):
         self._context = context
         self._graph = graph if graph else GraphFactory().create_graph()
 
-    def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False) -> Self:
+    def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False,
+                      inputs_schema: dict = None, outputs_schema: dict = None) -> Self:
         component.add_component(self._graph, node_id, wait_for_all=wait_for_all)
+        self._context.config.set_io_schema(node_id, (inputs_schema, outputs_schema))
         return self
 
     def start_nodes(self, nodes: list[str]) -> Self:
@@ -55,7 +59,7 @@ class LoopGroup:
             self._graph.end_node(node)
         return self
 
-    def add_condition(self, start_node_id: Union[str, list[str]], end_node_id: str) -> Self:
+    def add_connection(self, start_node_id: Union[str, list[str]], end_node_id: str) -> Self:
         self._graph.add_edge(start_node_id, end_node_id)
         return self
 
@@ -64,7 +68,7 @@ class LoopGroup:
         return self
 
     def compile(self) -> ExecutableGraph:
-        return self._graph.compile()
+        return self._graph.compile(self._context)
 
 
 BROKEN = "_broken"
@@ -77,6 +81,7 @@ class LoopComponent(WorkflowComponent, LoopController):
                  condition: Union[str, Callable[[], bool], Condition] = None, context_root: str = None,
                  break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None, graph: Graph = None):
         super().__init__()
+        self._node_id = node_id
         if context is None:
             raise ValueError("context cannot be None")
         if context_root is None:
@@ -98,7 +103,7 @@ class LoopComponent(WorkflowComponent, LoopController):
 
         if break_nodes:
             for break_node in break_nodes:
-                break_node.set_condition(self)
+                break_node.set_controller(self)
 
         if callbacks:
             for callback in callbacks:
@@ -119,11 +124,11 @@ class LoopComponent(WorkflowComponent, LoopController):
         self._graph.add_conditional_edges(condition_node_id, self)
 
         self.init()
-        self._compiled = self._graph.compile()
+        self._compiled = self._graph.compile(self._context)
 
     def init(self):
-        self._context.store.write(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + BROKEN, False)
-        self._context.store.write(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + FIRST_IN_LOOP, True)
+        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
+        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
         self._condition.init()
 
     def to_executable(self) -> Executable:
@@ -153,19 +158,20 @@ class LoopComponent(WorkflowComponent, LoopController):
         return self._out_loop
 
     def first_in_loop(self) -> bool:
-        _first_in_loop = self._context.store.read(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + FIRST_IN_LOOP)
+        _first_in_loop = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP)
         if isinstance(_first_in_loop, bool):
             if _first_in_loop:
-                self._context.store.write(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + FIRST_IN_LOOP, False)
+                self._context.state.update(self._node_id,
+                                           {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
             return _first_in_loop
-        self._context.store.write(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + FIRST_IN_LOOP, False)
+        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
         return True
 
     def is_broken(self) -> bool:
-        _is_broken = self._context.store.read(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + BROKEN)
+        _is_broken = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + BROKEN)
         if isinstance(_is_broken, bool):
             return _is_broken
         return False
 
     def break_loop(self):
-        self._context.store.write(self._context_root + BPMN_VARIABLE_POOL_SEPARATOR + BROKEN, True)
+        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + BROKEN: True})

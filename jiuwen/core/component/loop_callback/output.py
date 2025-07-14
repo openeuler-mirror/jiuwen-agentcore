@@ -11,6 +11,7 @@ from jiuwen.core.context.utils import is_ref_path, extract_origin_key, NESTED_PA
 class OutputCallback(LoopCallback):
     def __init__(self, context: Context, node_id: str, outputs_format: dict[str, Any],
                  round_result_root: str = None, result_root: str = None, intermediate_loop_var_root: str = None):
+        self._node_id = node_id
         self._context = context
         self._outputs_format = outputs_format
         self._round_result_root = round_result_root if round_result_root else node_id + NESTED_PATH_SPLIT + "round"
@@ -28,30 +29,30 @@ class OutputCallback(LoopCallback):
     def first_in_loop(self):
         _results: dict[str, list[Any]] = {}
         self._generate_results(_results)
-        self._context.store.write(self._round_result_root, _results)
+        self._context.state.update(self._round_result_root, _results)
 
     def out_loop(self):
-        results: dict[str, list[Any]] = self._context.store.read(self._round_result_root)
+        results: dict[str, list[Any]] = self._context.state.get(self._round_result_root)
         if not isinstance(results, dict):
             raise RuntimeError("error results in loop process")
         for path, array in results.items():
-            self._context.store.write(path, array)
-        result = filter_input(self._outputs_format, self._context.store)
-        self._context.store.write(self._round_result_root, {})
-        set_output(result, self._result_root, self._context.store)
+            self._context.state.update(self._node_id, {path: array})
+        result = self._context.state.get_inputs(self._outputs_format)
+        self._context.state.update(self._node_id, {self._round_result_root : {}})
+        self._context.state.set_outputs(self._node_id, {self._result_root : result})
 
     def start_round(self):
         pass
 
     def end_round(self):
-        results: dict[str, list[Any]] = self._context.store.read(self._round_result_root)
+        results: dict[str, list[Any]] = self._context.state.get(self._round_result_root)
         if not isinstance(results, dict):
             raise RuntimeError("error results in round process")
         for path, value in results.items():
             if path.startswith(self._intermediate_loop_var_root):
-                results[path] = self._context.store.read(path)
+                results[path] = self._context.state.get(path)
             elif isinstance(value, list):
-                value.append(self._context.store.read(path))
+                value.append(self._context.state.get(path))
             else:
                 raise RuntimeError("error process in loop: " + path + ", " + str(value))
-        self._context.store.write(self._round_result_root, results)
+        self._context.state.update(self._node_id, {self._round_result_root : results})

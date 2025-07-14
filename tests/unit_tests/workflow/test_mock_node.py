@@ -36,3 +36,11 @@ class MockEndNode(EndComponent, MockNodeBase):
 
     def invoke(self, inputs: Input, context: Context) -> Output:
         return inputs
+
+
+class Node1(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+
+    def invoke(self, inputs: Input, context: Context) -> Output:
+        return {}

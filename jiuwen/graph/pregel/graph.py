@@ -82,3 +82,6 @@ class CompiledGraph(ExecutableGraph):
 
     async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         return self._compiledStateGraph.astream({})
+
+    def interrupt(self, message: dict):
+        return

@@ -12,6 +12,7 @@ class IntermediateLoopVarCallback(LoopCallback):
     def __init__(self, context: Context, node_id: str,
                  intermediate_loop_var: dict[str, Union[str, Any]], intermediate_loop_var_root: str = None):
         self._context = context
+        self._node_id = node_id
         self._intermediate_loop_var = intermediate_loop_var
         self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root \
             else node_id + NESTED_PATH_SPLIT + "intermediateLoopVar"
@@ -23,15 +24,15 @@ class IntermediateLoopVarCallback(LoopCallback):
             if isinstance(value, str):
                 if is_ref_path(value):
                     ref_str = extract_origin_key(value)
-                    update = self._context.store.read(ref_str)
+                    update = self._context.state.get(ref_str)
                 else:
                     update = value
             else:
                 update = value
-            self._context.store.write({path: update})
+            self._context.state.update(self._node_id, {path: update})
 
     def out_loop(self):
-        self._context.store.write(self._intermediate_loop_var_root, {})
+        self._context.state.update(self._node_id, {self._intermediate_loop_var_root: {}})
 
     def start_round(self):
         pass

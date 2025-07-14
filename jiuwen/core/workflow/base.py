@@ -80,11 +80,11 @@ class Workflow:
         return self
 
     def add_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
-        self._graph.add_edge(source_node_id=src_comp_id, target_node_id=target_comp_id)
+        self._graph.add_edge(src_comp_id, target_comp_id)
         return self
 
     def add_stream_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
-        self._graph.add_edge(source_node_id=src_comp_id, target_node_id=target_comp_id)
+        self._graph.add_edge(src_comp_id, target_comp_id)
         if target_comp_id not in self._stream_edges:
             self._stream_edges[src_comp_id] = [target_comp_id]
         else:
