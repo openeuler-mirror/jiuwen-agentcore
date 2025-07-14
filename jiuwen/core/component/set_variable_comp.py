@@ -7,7 +7,7 @@ from typing import AsyncIterator, Iterator, Any
 
 from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.context.context import Context
-from jiuwen.core.context.utils import extract_origin_key
+from jiuwen.core.context.utils import extract_origin_key, is_ref_path
 from jiuwen.core.graph.executable import Executable, Input, Output
 
 
@@ -22,12 +22,11 @@ class SetVariableComponent(WorkflowComponent, Executable):
             left_ref_str = extract_origin_key(left)
             if left_ref_str == "":
                 left_ref_str = left
-            if isinstance(right, str):
+            if isinstance(right, str) and is_ref_path(right):
                 ref_str = extract_origin_key(right)
-                if ref_str == "":
-                    self._context.state.update(self._node_id, self._context.state.get(ref_str))
-                    continue
-            self._context.state.update(self._node_id, {left_ref_str : right})
+                self._context.state.io_state.update(self._node_id, {left_ref_str : self._context.state.get(ref_str)})
+                continue
+            self._context.state.io_state.update(self._node_id, {left_ref_str : right})
 
         return None
 

@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import random
 
+from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.condition.array import ArrayCondition
 from jiuwen.core.component.loop_callback.intermediate_loop_var import IntermediateLoopVarCallback
 from jiuwen.core.component.loop_callback.output import OutputCallback
@@ -109,6 +110,35 @@ class WorkflowTest(unittest.TestCase):
 
         self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
         self.assert_workflow_ainvoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
+
+    def test_workflow_with_branch(self):
+        context = create_context()
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"))
+        flow.set_end_comp("end", MockEndNode("end"),
+                          inputs_schema={"a": "${a.result}", "b": "${b.result}"})
+
+        sw = BranchComponent(context)
+        sw.add_branch("${user.inputs.a} <= 10", ["b"], "1")
+        sw.add_branch("${user.inputs.a} > 10", ["a"], "2")
+
+        flow.add_workflow_comp("sw", sw)
+
+        flow.add_workflow_comp("a", CommonNode("a"),
+                               inputs_schema={"result": "${user.inputs.a}"})
+
+        flow.add_workflow_comp("b", AddTenNode("b"),
+                               inputs_schema={"source": "${user.inputs.a}"})
+
+        flow.add_connection("start", "sw")
+        flow.add_connection("a", "end")
+        flow.add_connection("b", "end")
+
+        result = flow.invoke({"a": 2}, context=context)
+        assert result["b"] == 12
+
+        result = flow.invoke({"a": 15}, context=context)
+        assert result["a"] == 15
 
     def test_workflow_with_loop(self):
         flow = create_flow()
