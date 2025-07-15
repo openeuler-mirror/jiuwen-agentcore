@@ -4,14 +4,16 @@
 from abc import ABC, abstractmethod
 from typing import Any, Union, Optional, Callable
 
-
-class StateLike(ABC):
+class ReadableStateLike(ABC):
     @abstractmethod
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
         pass
 
+Transformer = Callable[[ReadableStateLike], Any]
+
+class StateLike(ReadableStateLike):
     @abstractmethod
-    def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
+    def get_by_transformer(self, transformer: Transformer) -> Optional[Any]:
         pass
 
     @abstractmethod

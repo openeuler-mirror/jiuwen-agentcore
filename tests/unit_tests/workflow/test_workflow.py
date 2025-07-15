@@ -2,6 +2,9 @@ import sys
 import types
 from unittest.mock import Mock
 
+
+
+
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
 
@@ -14,8 +17,8 @@ sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
 import asyncio
 import unittest
 from collections.abc import Callable
-
-import random
+from jiuwen.core.context.state import ReadableStateLike
+from test_mock_node import CollectionNode
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -91,6 +94,23 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("a", "end")
         self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result": 1})
 
+        flow2 = create_flow()
+        flow2.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={
+                                "a1": "${user.inputs.a1}",
+                                "a2": "${user.inputs.a2}"})
+
+        # flow2: start->a1|a2->end
+        flow2.add_workflow_comp("a1", Node1("a1"), inputs_schema={"value": "${start.a1}"})
+        flow2.add_workflow_comp("a2", Node1("a2"), inputs_schema={"value": "${start.a2}"})
+
+        flow2.set_end_comp("end", MockEndNode("end"), inputs_schema={"b1": "${a1.value}", "b2": "${a2.value}"})
+        flow2.add_connection("start", "a1")
+        flow2.add_connection("start", "a2")
+        flow2.add_connection("a1", "end")
+        flow2.add_connection("a2", "end")
+        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow2, expect_results={"b1": 1, "b2": 2})
+
     def test_simple_workflow_with_condition(self):
         """
         start -> condition[a,b] -> end
@@ -102,26 +122,32 @@ class WorkflowTest(unittest.TestCase):
                                            "b": "${user.inputs.b}",
                                            "c": 1,
                                            "d": [1, 2, 3]})
-
+        choose = "a"
         def router(state: GraphState):
-            condition_nodes = ["a", "b"]
-            randomIdx = random.randint(1, 2)
-            return condition_nodes[randomIdx - 1]
-
+            return choose
         flow.add_conditional_connection("start", router=router)
         flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}", "b": "${start.c}"})
         flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
         flow.set_end_comp("end", MockEndNode("end"), {"result1": "${a.a}", "result2": "${b.b}"})
         flow.add_connection("a", "end")
         flow.add_connection("b", "end")
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result1" : 1, "result2": None})
+        choose = "b"
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result1" : None, "result2": "haha"})
 
-        def checker(results):
-            if "result1" in results and results["result1"] is not None:
-                assert results["result1"] == 1
-            elif "result2" in results:
-                assert results["result2"] == "haha"
 
-        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
+    def test_workflow_with_wait_for_all(self):
+        flow = create_flow()
+        def start_input_transformer(state: ReadableStateLike):
+            start_input_schema = {"a": "${user.inputs.a}", "b": "${user.inputs.b}", "e": "${user.inputs.e}",}
+            return state.get(start_input_schema)
+        flow.set_start_comp("start", MockStartNode("start"), inputs_transformer=start_input_transformer)
+        flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}"})
+        flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
+        flow.add_workflow_comp("c", Node1("c"), inputs_schema={"c": "${start.c}"})
+        flow.add_workflow_comp("d", Node1("d"), inputs_schema={"d": "${start.d}"})
+        flow.add_workflow_comp("collect", CollectionNode("collect"), wait_for_all=True, inputs_schema={"a": "${a.a}", "b": "${b.b}", "c": "${c.c}", "d": "${d.d}"})
+
 
     def test_workflow_with_branch(self):
         context = create_context()
@@ -194,6 +220,7 @@ class WorkflowTest(unittest.TestCase):
 
         result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, context, flow)
         assert result == {"array_result": [14, 15], "user_var": 22}
+
 
     def test_workflow_with_loop_break(self):
         flow = create_flow()

@@ -58,8 +58,17 @@ class Node1(MockNodeBase):
         super().__init__(node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        context.state.set_outputs(self.node_id, inputs)
         print("node1: output = " + str(inputs))
+        return inputs
+
+class CollectionNode(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+        self.result = []
+
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        self.result.append(inputs)
+        context.state.set_outputs(self.node_id, inputs)
         return inputs
 
 

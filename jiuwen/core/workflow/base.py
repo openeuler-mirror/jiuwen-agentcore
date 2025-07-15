@@ -2,7 +2,6 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import asyncio
-from functools import partial
 from typing import Self, Dict, Any, Union, AsyncIterator, Iterator
 
 from pydantic import BaseModel

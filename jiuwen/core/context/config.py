@@ -2,15 +2,14 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 from abc import ABC
-from typing import TypedDict, Any, Callable, Optional
+from typing import TypedDict, Any, Optional
+
+from jiuwen.core.context.state import Transformer
 
 
 class MetadataLike(TypedDict):
     name: str
     event: str
-
-
-Transformer = Callable[[dict], Any]
 
 
 class CompIOConfig(ABC):

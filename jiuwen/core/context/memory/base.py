@@ -4,6 +4,7 @@
 from copy import deepcopy
 from typing import Union, Optional, Any, Callable
 
+from jiuwen.core.context.state import Transformer
 from jiuwen.core.context.state import CommitState, StateLike, State
 from jiuwen.core.context.utils import update_dict, get_by_schema
 
@@ -47,7 +48,7 @@ class InMemoryCommitState(CommitState):
         for node_id in failed_node_ids:
             self._updates[node_id] = []
 
-    def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
+    def get_by_transformer(self, transformer: Transformer) -> Optional[Any]:
         return transformer(self._state)
 
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
