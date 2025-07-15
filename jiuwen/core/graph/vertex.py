@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.context.context import Context
+from jiuwen.core.context.utils import get_by_schema
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
 
@@ -36,14 +37,25 @@ class Vertex:
         return {"source_node_id": self._node_id}
 
     def __pre_invoke__(self) -> Optional[dict]:
-        inputs_schema = self._context.config.get_inputs_schema(self._node_id)
-        inputs = self._context.state.get_inputs(inputs_schema) if inputs_schema else None
+        inputs_transformer = self._context.config.get_input_transformer(self._node_id)
+        if inputs_transformer is None:
+            inputs_schema = self._context.config.get_inputs_schema(self._node_id)
+            inputs = self._context.state.get_inputs(inputs_schema)
+        else:
+            inputs = self._context.state.get_inputs_by_transformer(inputs_transformer)
         if self._context.tracer is not None:
             self.__trace_inputs__(inputs)
         return inputs
 
     def __post_invoke__(self, results: Optional[dict]) -> None:
+        output_transformer = self._context.config.get_output_transformer(self._node_id)
+        if output_transformer is None:
+            output_schema = self._context.config.get_outputs_schema(self._node_id)
+            results = get_by_schema(output_schema, results)
+        else:
+            results = output_transformer(results)
         self._context.state.set_outputs(self._node_id, results)
+        # todo: need move to checkpoint
         self._context.state.io_state.commit()
         self._context.state.global_state.commit()
         pass

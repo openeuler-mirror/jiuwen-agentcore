@@ -5,6 +5,7 @@ import asyncio
 from functools import partial
 from typing import Iterator, AsyncIterator, Self, Union, Callable
 
+from langchain.chains.question_answering.map_rerank_prompt import output_parser
 from langgraph.constants import END, START
 
 from jiuwen.core.component.base import WorkflowComponent
@@ -12,6 +13,7 @@ from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
+from jiuwen.core.context.config import Transformer, CompIOConfig
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
@@ -44,9 +46,12 @@ class LoopGroup:
         self._graph = graph if graph else GraphFactory().create_graph()
 
     def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False,
-                      inputs_schema: dict = None, outputs_schema: dict = None) -> Self:
+                      inputs_schema: dict = None, outputs_schema: dict = None,
+                      inputs_transformer: Transformer = None, outputs_transformer: Transformer = None) -> Self:
         component.add_component(self._graph, node_id, wait_for_all=wait_for_all)
-        self._context.config.set_io_schema(node_id, (inputs_schema, outputs_schema))
+        self._context.config.set_comp_io_config(node_id,CompIOConfig(inputs_schema = inputs_schema,
+            outputs_schema = outputs_schema, inputs_transformer = inputs_transformer,
+            outputs_transformer = outputs_transformer))
         return self
 
     def start_nodes(self, nodes: list[str]) -> Self:

@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Union, Optional, Any, Callable
 
 from jiuwen.core.context.state import CommitState, StateLike, State
-from jiuwen.core.context.utils import extract_origin_key, get_value_by_nested_path, update_dict
+from jiuwen.core.context.utils import update_dict, get_by_schema
 
 
 class InMemoryStateLike(StateLike):
@@ -13,21 +13,7 @@ class InMemoryStateLike(StateLike):
         self._state: dict = dict()
 
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
-        if isinstance(key, str):
-            origin_key = extract_origin_key(key)
-            return get_value_by_nested_path(origin_key, self._state)
-        elif isinstance(key, dict):
-            result = {}
-            for target_key, target_schema in key.items():
-                result[target_key] = self.get(target_schema)
-            return result
-        elif isinstance(key, list):
-            result = []
-            for item in key:
-                result.append(self.get(item))
-            return result
-        else:
-            return key
+        return get_by_schema(key, self._state)
 
     def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
         return transformer(self._state)
@@ -72,6 +58,6 @@ class InMemoryState(State):
         super().__init__(io_state=InMemoryCommitState(),
                          global_state=InMemoryCommitState(),
                          trace_state=InMemoryStateLike(),
-                         comp_state=InMemoryStateLike())
+                         comp_state=InMemoryCommitState())
 
 

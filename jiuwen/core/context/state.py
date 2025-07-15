@@ -37,7 +37,7 @@ class State(ABC):
             io_state: CommitState,
             global_state: CommitState,
             trace_state: StateLike,
-            comp_state: StateLike
+            comp_state: CommitState
     ):
         self._io_state = io_state
         self._global_state = global_state
@@ -57,7 +57,7 @@ class State(ABC):
         return self._global_state
 
     @property
-    def comp_state(self) -> StateLike:
+    def comp_state(self) -> CommitState:
         return self._comp_state
 
     def get(self, key: Union[str, dict]) -> Optional[Any]:
@@ -94,9 +94,14 @@ class State(ABC):
         self._io_state.update("user", {"user.inputs": inputs})
 
     def get_inputs(self, input_schemas: dict) -> dict:
-        if self._io_state is None:
+        if self._io_state is None or input_schemas is None:
             return {}
         return self._io_state.get(input_schemas)
+
+    def get_inputs_by_transformer(self, transformer: Callable) -> dict:
+        if self._io_state is None:
+            return {}
+        return self._io_state.get_by_transformer(transformer)
 
     def get_outputs(self, node_id: str) -> Any:
         if self._io_state is None:

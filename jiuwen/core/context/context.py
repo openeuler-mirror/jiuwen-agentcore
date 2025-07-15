@@ -2,11 +2,11 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 from abc import ABC
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
-from jiuwen.core.context.config import Config
+from jiuwen.core.context.config import Config, CompIOConfig
 from jiuwen.core.context.state import State
 from jiuwen.core.context.store import Store
 from jiuwen.core.stream.base import StreamMode
@@ -25,9 +25,9 @@ class Context(ABC):
         self._workflow_config: BaseModel = None
         self._queue_manager = None
 
-    def init(self, io_schemas: dict[str, tuple[dict, dict]], stream_edges: dict[str, list[str]] = None,
+    def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None,
              workflow_config: BaseModel = None, stream_modes: list[StreamMode] = None) -> bool:
-        if self.config is not None and not self.config.init(io_schemas, stream_edges):
+        if self.config is not None and not self.config.init(comp_configs, stream_edges):
             return False
         self._stream_emitter = StreamEmitter()
         self._stream_writer_manager = StreamWriterManager(stream_emitter=self._stream_emitter, modes=stream_modes)
