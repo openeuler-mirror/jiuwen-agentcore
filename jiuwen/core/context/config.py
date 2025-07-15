@@ -93,7 +93,7 @@ class Config(ABC):
         if node_id not in self._comp_io_configs:
             return None
         else:
-            return self._comp_io_configs[node_id].inputs_transformer
+            return self._comp_io_configs[node_id].outputs_transformer
 
     def set_stream_edge(self, source_node_id: str, target_node_id: str) -> None:
         """

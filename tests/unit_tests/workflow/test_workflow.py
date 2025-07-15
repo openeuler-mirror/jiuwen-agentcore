@@ -3,8 +3,6 @@ import types
 from unittest.mock import Mock
 
 
-
-
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
 
@@ -18,7 +16,7 @@ import asyncio
 import unittest
 from collections.abc import Callable
 from jiuwen.core.context.state import ReadableStateLike
-from test_mock_node import CollectionNode
+from test_mock_node import SlowNode, CountNode
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -73,9 +71,7 @@ class WorkflowTest(unittest.TestCase):
             checker(self.invoke_workflow(inputs, context, flow))
 
     def test_simple_workflow(self):
-        """
-        graph : start->a->end
-        """
+        # flow1: start -> a -> end
         flow = create_flow()
         flow.set_start_comp("start", MockStartNode("start"),
                             inputs_schema={
@@ -114,7 +110,6 @@ class WorkflowTest(unittest.TestCase):
     def test_simple_workflow_with_condition(self):
         """
         start -> condition[a,b] -> end
-        :return:
         """
         flow = create_flow()
         flow.set_start_comp("start", MockStartNode("start"),
@@ -137,16 +132,37 @@ class WorkflowTest(unittest.TestCase):
 
 
     def test_workflow_with_wait_for_all(self):
-        flow = create_flow()
-        def start_input_transformer(state: ReadableStateLike):
-            start_input_schema = {"a": "${user.inputs.a}", "b": "${user.inputs.b}", "e": "${user.inputs.e}",}
-            return state.get(start_input_schema)
-        flow.set_start_comp("start", MockStartNode("start"), inputs_transformer=start_input_transformer)
-        flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}"})
-        flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
-        flow.add_workflow_comp("c", Node1("c"), inputs_schema={"c": "${start.c}"})
-        flow.add_workflow_comp("d", Node1("d"), inputs_schema={"d": "${start.d}"})
-        flow.add_workflow_comp("collect", CollectionNode("collect"), wait_for_all=True, inputs_schema={"a": "${a.a}", "b": "${b.b}", "c": "${c.c}", "d": "${d.d}"})
+        # flow: start -> (a->a1)|b|c|d -> collect -> end
+        for waitForAll in [True, False]:
+            flow = create_flow()
+            def start_input_transformer(state: ReadableStateLike):
+                start_input_schema = {"a": "${user.inputs.a}", "b": "${user.inputs.b}", "c": "${user.inputs.c}",
+                                      "d": "${user.inputs.d}"}
+                return state.get(start_input_schema)
+            flow.set_start_comp("start", MockStartNode("start"), inputs_transformer=start_input_transformer)
+            flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}"})
+            flow.add_workflow_comp("a1", SlowNode("a1", 1), inputs_schema={"a": "${a.a}"})
+            flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
+            flow.add_workflow_comp("c", Node1("c"), inputs_schema={"c": "${start.c}"})
+            flow.add_workflow_comp("d", Node1("d"), inputs_schema={"d": "${start.d}"})
+            flow.add_workflow_comp("collect", CountNode("collect"), wait_for_all=waitForAll)
+            flow.set_end_comp("end", MockEndNode("end"), {"result": "${collect.count}"})
+            flow.add_connection("start", "a")
+            flow.add_connection("start", "b")
+            flow.add_connection("start", "c")
+            flow.add_connection("start", "d")
+            flow.add_connection("a", "a1")
+            flow.add_connection("a1", "collect")
+            flow.add_connection("b", "collect")
+            flow.add_connection("c", "collect")
+            flow.add_connection("d", "collect")
+            flow.add_connection("collect", "end")
+            if waitForAll:
+                self.assert_workflow_invoke({"a": 1, "b": 2, "c": 3, "d": 4}, create_context(), flow,
+                                        expect_results={"result": 1})
+            else:
+                self.assert_workflow_invoke({"a": 1, "b": 2, "c": 3, "d": 4}, create_context(), flow,
+                                        expect_results={"result": 2})
 
 
     def test_workflow_with_branch(self):

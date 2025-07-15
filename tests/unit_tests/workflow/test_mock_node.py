@@ -58,19 +58,29 @@ class Node1(MockNodeBase):
         super().__init__(node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        print("node1: output = " + str(inputs))
+        print(self.node_id + ": inputs = " + str(inputs))
         return inputs
 
-class CollectionNode(MockNodeBase):
+class CountNode(MockNodeBase):
     def __init__(self, node_id: str):
         super().__init__(node_id)
-        self.result = []
+        self.times = 0
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        self.result.append(inputs)
-        context.state.set_outputs(self.node_id, inputs)
-        return inputs
+        self.times += 1
+        result = {"count" : self.times}
+        print(self.node_id + ": results = " + str(result))
+        return result
 
+class SlowNode(MockNodeBase):
+    def __init__(self, node_id: str, wait: int):
+        super().__init__(node_id)
+        self._wait = wait
+
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        await asyncio.sleep(self._wait)
+        print(self.node_id + ": input = " + str(inputs))
+        return inputs
 
 class StreamNode(MockNodeBase):
     def __init__(self, node_id: str, datas: list[dict]):
