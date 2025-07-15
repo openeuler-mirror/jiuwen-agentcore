@@ -1,19 +1,8 @@
-import sys
-import types
-from unittest.mock import Mock
-
-fake_base = types.ModuleType("base")
-fake_base.logger = Mock()
-
-fake_exception_module = types.ModuleType("base")
-fake_exception_module.JiuWenBaseException = Mock()
-
-sys.modules["jiuwen.core.common.logging.base"] = fake_base
-sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
-
 import asyncio
 import unittest
 from collections.abc import Callable
+
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.context.state import ReadableStateLike
 from test_mock_node import SlowNode, CountNode, StreamNodeWithSubWorkflow
 
@@ -356,7 +345,7 @@ class WorkflowTest(unittest.TestCase):
             index = 0
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
                 assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
-                print(f"stream chunk: {chunk}")
+                logger.info(f"stream chunk: {chunk}")
                 index += 1
 
         self.loop.run_until_complete(stream_workflow())
@@ -408,7 +397,7 @@ class WorkflowTest(unittest.TestCase):
                 node_id = chunk.node_id
                 index = index_dict[node_id]
                 assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
-                print(f"stream chunk: {chunk}")
+                logger.info(f"stream chunk: {chunk}")
                 index_dict[node_id] = index_dict[node_id] + 1
 
         self.loop.run_until_complete(stream_workflow())
@@ -461,7 +450,7 @@ class WorkflowTest(unittest.TestCase):
                 node_id = chunk.node_id
                 index = index_dict[node_id]
                 assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
-                print(f"stream chunk: {chunk}")
+                logger.info(f"stream chunk: {chunk}")
                 index_dict[node_id] = index_dict[node_id] + 1
 
         self.loop.run_until_complete(stream_workflow())
@@ -514,7 +503,7 @@ class WorkflowTest(unittest.TestCase):
             index = 0
             async for chunk in main_workflow.stream({"a": 1, "b": "haha"}, create_context()):
                 assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
-                print(f"stream chunk: {chunk}")
+                logger.info(f"stream chunk: {chunk}")
                 index += 1
 
         self.loop.run_until_complete(stream_workflow())

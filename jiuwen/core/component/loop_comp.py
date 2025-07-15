@@ -5,7 +5,6 @@ import asyncio
 from functools import partial
 from typing import Iterator, AsyncIterator, Self, Union, Callable
 
-from langchain.chains.question_answering.map_rerank_prompt import output_parser
 from langgraph.constants import END, START
 
 from jiuwen.core.component.base import WorkflowComponent

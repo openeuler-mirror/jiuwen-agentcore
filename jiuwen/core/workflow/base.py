@@ -7,6 +7,7 @@ from typing import Self, Dict, Any, Union, AsyncIterator, Iterator
 from pydantic import BaseModel
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
 from jiuwen.core.context.config import CompIOConfig, Transformer
 from jiuwen.core.context.context import Context
@@ -111,11 +112,14 @@ class Workflow:
         if not context.init(comp_configs=self._comp_io_configs, stream_edges=self._stream_edges,
                             workflow_config=self._workflow_config):
             return None
+        logger.info("begin to invoke, input=%s", inputs)
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
         context.state.io_state.commit()
         await compiled_graph.invoke(inputs, context)
-        return context.state.get_outputs(self._end_comp_id)
+        results = context.state.get_outputs(self._end_comp_id)
+        logger.info("end to invoke, results=%s", results)
+        return results
 
     async def stream(
             self,
