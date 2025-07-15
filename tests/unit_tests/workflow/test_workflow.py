@@ -16,7 +16,6 @@ import unittest
 from collections.abc import Callable
 
 import random
-from venv import create
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -54,10 +53,13 @@ DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
 
 
 class WorkflowTest(unittest.TestCase):
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
     def invoke_workflow(self, inputs: dict, context: Context, flow: Workflow):
-        loop = asyncio.get_event_loop()
         feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context))
-        loop.run_until_complete(feature)
+        self.loop.run_until_complete(feature)
         return feature.result()
 
     def assert_workflow_invoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
