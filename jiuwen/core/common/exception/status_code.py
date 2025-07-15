@@ -19,6 +19,9 @@ class StatusCode(Enum):
         102053,
         "Errors occur when formatting the template content due to wrong format")
 
+    # 控制器 103000 - 103999
+    INVOKE_LLM_FAILED = (103004, "Failed to call model")
+
     # Tool组件 101741-101770
     TOOL_COMPONENT_PARAM_CHECK_ERROR = (101742, 'Tool component parameter check error')
     TOOL_COMPONENT_INPUTS_ERROR = (101743, 'Tool component inputs not defined')
@@ -32,6 +35,12 @@ class StatusCode(Enum):
     WORKFLOW_LLM_INIT_ERROR = (101561, "LLM component initialization error, msg = {msg}")
     WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR = (101562, "LLM component template assemble error")
     WORKFLOW_LLM_STREAMING_OUTPUT_ERROR = (101563, "Get model streaming output error, msg = {msg}")
+
+    # questioner组件 101040 - 101059
+    WORKFLOW_QUESTIONER_EXCEED_LOOP = (101043, "Exceeded the maximum number of conversation")
+    WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR = (
+        101045, "The question cannot be empty in direct user response collection mode")
+    WORKFLOW_QUESTIONER_INIT_STATE_ERROR = (101059, "Failed to initialize questioner state")
 
     @property
     def code(self):

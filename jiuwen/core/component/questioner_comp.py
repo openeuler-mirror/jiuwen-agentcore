@@ -4,8 +4,8 @@
 import ast
 import json
 import re
+from abc import ABC
 from dataclasses import dataclass, field
-from email.policy import default
 from enum import Enum
 from typing import Any, Optional, List, Dict, Iterator, AsyncIterator
 
@@ -17,6 +17,10 @@ from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.utils.llm.base import BaseChatModel
+from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
+from jiuwen.core.utils.prompt.template.template import Template
+from jiuwen.core.utils.prompt.template.template_manager import TemplateManager
 
 START_STR = "start"
 END_STR = "end"
@@ -67,7 +71,7 @@ class QuestionerConfig(ComponentConfig):
 class QuestionerOutput(BaseModel):
     user_response: str = Field(default="")
     question: str = Field(default="")
-    key_fields: dict = Field(default=ExecutionStatus.START)
+    key_fields: dict = Field(default_factory=dict)
 
 
 class QuestionerState(BaseModel):
@@ -77,9 +81,12 @@ class QuestionerState(BaseModel):
     status: ExecutionStatus = Field(default=ExecutionStatus.START)
 
     @classmethod
-    def deserialize(cls, raw_state: str):
-        state = cls.model_validate_json(raw_state)
+    def deserialize(cls, raw_state: dict):
+        state = cls.model_validate(raw_state)
         return state.handle_event(QuestionerEvent(state.status.value))
+
+    def serialize(self) -> dict:
+        return self.model_dump()
 
     def handle_event(self, event: QuestionerEvent):
         if event == QuestionerEvent.START_EVENT:
@@ -89,9 +96,6 @@ class QuestionerState(BaseModel):
         if event == QuestionerEvent.END_EVENT:
             return QuestionerEndState.from_state(self)
         return self
-
-    def serialize(self) -> str:
-        return self.model_dump_json()
 
     def is_undergoing_interaction(self):
         return self.status in [ExecutionStatus.USER_INTERACT]
@@ -105,7 +109,16 @@ class QuestionerStartState(QuestionerState):
                    extracted_key_fields=questioner_state.extracted_key_fields,
                    status=ExecutionStatus.START)
 
+    def handle_event(self, event: QuestionerEvent):
+        if event == QuestionerEvent.USER_INTERACT_EVENT:
+            return QuestionerInteractState.from_state(self)
+        if event == QuestionerEvent.END_EVENT:
+            return QuestionerEndState.from_state(self)
+        return self
+
 class QuestionerInteractState(QuestionerState):
+    status: ExecutionStatus = Field(default=ExecutionStatus.USER_INTERACT)
+
     @classmethod
     def from_state(cls, questioner_state: QuestionerState):
         return cls(response_num=questioner_state.response_num,
@@ -120,6 +133,8 @@ class QuestionerInteractState(QuestionerState):
 
 
 class QuestionerEndState(QuestionerState):
+    status: ExecutionStatus = Field(default=ExecutionStatus.END)
+
     @classmethod
     def from_state(cls, questioner_state: QuestionerState):
         return cls(response_num=questioner_state.response_num,
@@ -177,6 +192,9 @@ class QuestionerDirectReplyHandler:
         self._state = state
         return self
 
+    def get_state(self):
+        return self._state
+
     def prompt(self, prompt):
         self._prompt = prompt
         return self
@@ -197,13 +215,13 @@ class QuestionerDirectReplyHandler:
         if self._is_set_question_content():
             user_fields = inputs.get(USER_FIELDS_KEY, dict())
             output.question = QuestionerUtils.format_template(self._config.question_content, user_fields)
-            self._state.handle_event(QuestionerEvent.USER_INTERACT_EVENT)
+            self._state = self._state.handle_event(QuestionerEvent.USER_INTERACT_EVENT)
             return dict(usesFields=output.model_dump(exclude_defaults=True))
 
         if self._need_extract_fields():
             is_continue_ask = self._initial_extract_from_chat_history(chat_history, output)
             event = QuestionerEvent.USER_INTERACT_EVENT if is_continue_ask else QuestionerEvent.END_EVENT
-            self._state.handle_event(event)
+            self._state = self._state.handle_event(event)
         else:
             raise JiuWenBaseException(
                 error_code=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.code,
@@ -219,13 +237,13 @@ class QuestionerDirectReplyHandler:
 
         if self._is_set_question_content() and not self._need_extract_fields():
             output.user_response = user_response
-            self._state.handle_event(QuestionerEvent.END_EVENT)
+            self._state = self._state.handle_event(QuestionerEvent.END_EVENT)
             return dict(usesFields=output.model_dump(exclude_defaults=True))
 
         if self._need_extract_fields():
             is_continue_ask = self._repeat_extract_from_chat_history(chat_history, output)
             event = QuestionerEvent.USER_INTERACT_EVENT if is_continue_ask else QuestionerEvent.END_EVENT
-            self._state.handle_event(event)
+            self._state = self._state.handle_event(event)
         else:
             raise JiuWenBaseException(
                 error_code=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.code,
@@ -236,7 +254,7 @@ class QuestionerDirectReplyHandler:
     def _handle_end_state(self, inputs, context):
         return dict(
             userFields=QuestionerOutput(user_response=self._state.user_response,
-                                        key_fields=self._state.extract_key_fields).model_dump(exclude_defaults=True)
+                                        key_fields=self._state.extracted_key_fields).model_dump(exclude_defaults=True)
         )
 
     def _is_set_question_content(self):
@@ -244,7 +262,7 @@ class QuestionerDirectReplyHandler:
 
     def _need_extract_fields(self):
         return (self._config.extract_fields_from_response and
-                len(self._config.field_names) > len(self._state.extract_key_fields))
+                len(self._config.field_names) > len(self._state.extracted_key_fields))
 
     def _initial_extract_from_chat_history(self, chat_history, output: QuestionerOutput) -> bool:
         self._invoke_llm_and_parse_result(chat_history, output)
@@ -271,7 +289,7 @@ class QuestionerDirectReplyHandler:
 
     def _build_llm_inputs(self, chat_history: list = None) -> List:
         prompt_template_input = self._create_prompt_template_keywords(chat_history)
-        prompt_template = PromptEngine.format(prompt_template_input, self._prompt)
+        prompt_template = TemplateManager().format(prompt_template_input, self._prompt)
         return prompt_template.content
 
     def _create_prompt_template_keywords(self, chat_history):
@@ -309,14 +327,14 @@ class QuestionerDirectReplyHandler:
         return result
 
     def _filter_non_extracted_key_fields(self) -> List[FieldInfo]:
-        return [_ for _ in self._config.field_names if _.field_name not in self._state.extract_key_fields]
+        return [_ for _ in self._config.field_names if _.field_name not in self._state.extracted_key_fields]
 
     def _update_state_of_key_fields(self, key_fields):
-        self._state.extract_key_fields.update(key_fields)
+        self._state.extracted_key_fields.update(key_fields)
 
     def _update_param_default_value(self, output: QuestionerOutput):
         result = dict()
-        extracted_key_fields = self._state.extract_key_fields
+        extracted_key_fields = self._state.extracted_key_fields
         for param in self._config.field_names:
             param_name = param.field_name
             default_value = param.default_value
@@ -345,7 +363,7 @@ class QuestionerDirectReplyHandler:
         if is_continue_ask:
             output.key_fields.clear()
         else:
-            output.key_fields.update(self._state.extract_key_fields)
+            output.key_fields.update(self._state.extracted_key_fields)
         return is_continue_ask
 
     def _invoke_llm_and_parse_result(self, chat_history, output):
@@ -355,37 +373,48 @@ class QuestionerDirectReplyHandler:
         self._increment_state_of_response_num()
         self._update_state_of_key_fields(extracted_key_fields)
 
+
 class QuestionerExecutable(Executable):
     def __init__(self, config: QuestionerConfig):
         super().__init__()
         self._config = config
         self._llm = self._create_llm_instance()
         self._prompt: Template = self._init_prompt()
-        self._questioner_state = QuestionerState()
+        self._state = None
 
     @staticmethod
     def _load_state_from_context(context) -> QuestionerState:
-        state_str = context.state.get(QUESTIONER_STATE_KEY)
-        if state_str:
-            return QuestionerState.deserialize(state_str)
+        state_dict = context.state.get(QUESTIONER_STATE_KEY)
+        if state_dict:
+            return QuestionerState.deserialize(state_dict)
         return QuestionerState()
 
     @staticmethod
     def _store_state_to_context(state: QuestionerState, context):
-        state_str = state.serialize()
-        context.state.ser(QUESTIONER_STATE_KEY, state_str)
+        state_dict = state.serialize()
+        context.state.update(QUESTIONER_STATE_KEY, state_dict)
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    def state(self, state: QuestionerState):
+        self._state = state
+        return self
+
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         state_from_context = self._load_state_from_context(context)
         if state_from_context.is_undergoing_interaction():
-            self._questioner_state = state_from_context
-        self._questioner_state = self._questioner_state.handle_event(QuestionerEvent.START_EVENT)
+            self._state = state_from_context
+
+        if self._state is None:
+            raise JiuWenBaseException(
+                error_code=StatusCode.WORKFLOW_QUESTIONER_INIT_STATE_ERROR.code,
+                message=StatusCode.WORKFLOW_QUESTIONER_INIT_STATE_ERROR.errmsg
+            )
+        self._state = self._state.handle_event(QuestionerEvent.START_EVENT)
 
         invoke_result = dict()
         if self._config.response_type == ResponseType.ReplyDirectly.value:
             invoke_result = self._handle_questioner_direct_reply(inputs, context)
 
-        self._store_state_to_context(self._questioner_state, context)
+        self._store_state_to_context(self._state, context)
         return invoke_result
 
     async def ainvoke(self, inputs: Input, context: Context) -> Output:
@@ -400,6 +429,12 @@ class QuestionerExecutable(Executable):
     def interrupt(self, message: dict):
         return super().interrupt(message)
 
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
+        pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
+
     def _create_llm_instance(self) -> BaseChatModel:
         return ModelFactory().get_model(model_provider=self._config.model.model_provider,
                                         model_info=self._config.model.model_info)
@@ -409,23 +444,23 @@ class QuestionerExecutable(Executable):
             return Template(name="user_prompt", content=self._config.prompt_template)
 
         filters = dict(model_name=self._config.model.model_info.model_name)
-        return TemplateManager.get(name=TEMPLATE_NAME, filters=filters)
+        return TemplateManager().get(name=TEMPLATE_NAME, filters=filters)
 
     def _handle_questioner_direct_reply(self, inputs: Input, context: Context):
-        return (QuestionerDirectReplyHandler()
-                .config(self._config)
-                .model(self._llm)
-                .state(self._questioner_state)
-                .prompt(self._prompt)
-                .handle(inputs, context))
+        handler = (QuestionerDirectReplyHandler()
+                   .config(self._config).model(self._llm).state(self._state).prompt(self._prompt))
+        result = handler.handle(inputs, context)
+        self._state = handler.get_state()
+        return result
+
 
 
 class QuestionerComponent(WorkflowComponent):
     def __init__(self, questioner_comp_config: QuestionerConfig = None):
         super().__init__()
         self._questioner_config = questioner_comp_config
+        self._questioner_state = QuestionerState()
         self._executable = None
 
     def to_executable(self) -> Executable:
-        return QuestionerExecutable(self._questioner_config)
-
+        return QuestionerExecutable(self._questioner_config).state(self._questioner_state)
