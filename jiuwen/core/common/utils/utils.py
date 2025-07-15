@@ -158,7 +158,7 @@ class OutputFormatter:
         formatters = {
             "text": OutputFormatter._format_text_response,
             "markdown": OutputFormatter._format_text_response,
-            "json": OutputFormatter._format_json.response
+            "json": OutputFormatter._format_json_response
         }
 
         formatter = formatters.get(response_type)

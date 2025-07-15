@@ -28,6 +28,11 @@ class StatusCode(Enum):
     PROMPT_TEMPLATE_DUPLICATED_ERROR = (102101, "Template duplicated")
     PROMPT_TEMPLATE_NOT_FOUND_ERROR = (102102, "Template not found")
 
+    # LLM组件 101561-101590
+    WORKFLOW_LLM_INIT_ERROR = (101561, "LLM component initialization error, msg = {msg}")
+    WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR = (101562, "LLM component template assemble error")
+    WORKFLOW_LLM_STREAMING_OUTPUT_ERROR = (101563, "Get model streaming output error, msg = {msg}")
+
     @property
     def code(self):
         return self.value[0]

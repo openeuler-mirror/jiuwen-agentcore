@@ -5,12 +5,18 @@ from dataclasses import dataclass, field
 from typing import List, Any, Dict, Optional, Iterator, AsyncIterator
 
 from jiuwen.core.common.configs.model_config import ModelConfig
+from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.enum.enum import WorkflowLLMResponseType, MessageRole
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
+from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.utils.llm.base import BaseChatModel
+from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
+from jiuwen.core.utils.prompt.template.template import Template
+from jiuwen.core.utils.prompt.template.template_manager import TemplateManager
 
 WORKFLOW_CHAT_HISTORY = "workflow_chat_history"
 CHAT_HISTORY_MAX_TURN = 3
@@ -35,6 +41,7 @@ RESPONSE_FORMAT_TO_PROMPT_MAP = {
     }
 }
 
+
 @dataclass
 class LLMCompConfig(ComponentConfig):
     model: 'ModelConfig' = None
@@ -54,7 +61,7 @@ class LLMExecutable(Executable):
         self._initialized: bool = False
         self._context = None
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         try:
             self._set_context(context)
             model_inputs = self._prepare_model_inputs(inputs)
@@ -66,29 +73,36 @@ class LLMExecutable(Executable):
             raise JiuWenBaseException(error_code=StatusCode.WORKFLOW_LLM_INIT_ERROR.code,
                                       message=StatusCode.WORKFLOW_LLM_INIT_ERROR.errmsg.format(msg=str(e))) from e
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        pass
-
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         try:
             self._set_context(context)
-            
             response_format_type = self._get_response_format().get(_TYPE)
-            
+
             if response_format_type == WorkflowLLMResponseType.JSON.value:
-                yield from self._invoke_for_json_format(inputs)
+                async for out in self._invoke_for_json_format(inputs):
+                    yield out
             else:
-                yield from self._stream_with_chunks(inputs)
+                async for out in self._stream_with_chunks(inputs):
+                    yield out
         except JiuWenBaseException:
-                raise
+            raise
         except Exception as e:
             raise JiuWenBaseException(
                 error_code=StatusCode.WORKFLOW_LLM_STREAMING_OUTPUT_ERROR.code,
                 message=StatusCode.WORKFLOW_LLM_STREAMING_OUTPUT_ERROR.errmsg.format(msg=str(e))
             ) from e
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
+
+    async def interrupt(self, message: dict):
+        raise InterruptException(
+            error_code=StatusCode.CONTROLLER_INTERRUPTED_ERROR.code,
+            message=json.dumps(message, ensure_ascii=False)
+        )
 
     def _initialize_if_needed(self):
         if not self._initialized:
@@ -117,7 +131,7 @@ class LLMExecutable(Executable):
                 full_input = ""
                 for history in chat_history[-CHAT_HISTORY_MAX_TURN:]:
                     full_input += "{}：{}\n".format(ROLE_MAP.get(history.get("role", "user"), "用户"),
-                                                    history.get("content"))
+                                                   history.get("content"))
                 inputs.update({"CHAT_HISTORY": full_input})
         return processed_inputs
 
@@ -130,7 +144,7 @@ class LLMExecutable(Executable):
                 message=StatusCode.WORKFLOW_LLM_INIT_ERROR.errmsg.format(msg="Failed to retrieve llm template content")
             )
         default_template = Template(name="default", content=str(user_prompt[0].get("content")))
-        return PromptEngine.format(inputs, default_template)
+        return default_template.format(inputs)
 
     def _get_model_input(self, inputs: dict):
         return self._build_prompt_message(inputs)
@@ -174,6 +188,11 @@ class LLMExecutable(Executable):
             template = template_manager.get(name=template_name, filters=filters)
 
             return getattr(template, "content", None) if template else None
+        except Exception as e:
+            raise JiuWenBaseException(
+                error_code=StatusCode.WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR.code,
+                message=StatusCode.WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR.errmsg
+            )(e)
 
     def _build_template_filters(self) -> dict:
         filters = {}
@@ -201,15 +220,15 @@ class LLMExecutable(Executable):
         processed_inputs = self._process_inputs(user_inputs)
         return self._get_model_input(processed_inputs)
 
-    def _invoke_for_json_format(self, inputs: Input) -> Iterator[Output]:
+    async def _invoke_for_json_format(self, inputs: Input) -> AsyncIterator[Output]:
         model_inputs = self._prepare_model_inputs(inputs)
-        llm_output = self._llm.invoke(model_inputs)
+        llm_output = await self._llm.ainvoke(model_inputs)  # 如果 invoke 是异步接口，要加 await
         yield self._create_output(llm_output)
 
-    def _stream_with_chunks(self, inputs: Input) -> Iterator[Output]:
+    async def _stream_with_chunks(self, inputs: Input) -> AsyncIterator[Output]:
         model_inputs = self._prepare_model_inputs(inputs)
-        result = self._llm.stream(model_inputs)
-        for chunk in result:
+        # 假设 self._llm.stream 本身就是异步生成器
+        async for chunk in self._llm.astream(model_inputs):
             content = WorkflowLLMUtils.extract_content(chunk)
             yield content
 
