@@ -2,7 +2,6 @@ import sys
 import types
 from unittest.mock import Mock
 
-
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
 
@@ -16,7 +15,7 @@ import asyncio
 import unittest
 from collections.abc import Callable
 from jiuwen.core.context.state import ReadableStateLike
-from test_mock_node import SlowNode, CountNode
+from test_mock_node import SlowNode, CountNode, StreamNodeWithSubWorkflow
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -92,9 +91,9 @@ class WorkflowTest(unittest.TestCase):
 
         flow2 = create_flow()
         flow2.set_start_comp("start", MockStartNode("start"),
-                            inputs_schema={
-                                "a1": "${user.inputs.a1}",
-                                "a2": "${user.inputs.a2}"})
+                             inputs_schema={
+                                 "a1": "${user.inputs.a1}",
+                                 "a2": "${user.inputs.a2}"})
 
         # flow2: start->a1|a2->end
         flow2.add_workflow_comp("a1", Node1("a1"), inputs_schema={"value": "${start.a1}"})
@@ -118,27 +117,32 @@ class WorkflowTest(unittest.TestCase):
                                            "c": 1,
                                            "d": [1, 2, 3]})
         choose = "a"
+
         def router(state: GraphState):
             return choose
+
         flow.add_conditional_connection("start", router=router)
         flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}", "b": "${start.c}"})
         flow.add_workflow_comp("b", Node1("b"), inputs_schema={"b": "${start.b}"})
         flow.set_end_comp("end", MockEndNode("end"), {"result1": "${a.a}", "result2": "${b.b}"})
         flow.add_connection("a", "end")
         flow.add_connection("b", "end")
-        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result1" : 1, "result2": None})
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow,
+                                    expect_results={"result1": 1, "result2": None})
         choose = "b"
-        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result1" : None, "result2": "haha"})
-
+        self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow,
+                                    expect_results={"result1": None, "result2": "haha"})
 
     def test_workflow_with_wait_for_all(self):
         # flow: start -> (a->a1)|b|c|d -> collect -> end
         for waitForAll in [True, False]:
             flow = create_flow()
+
             def start_input_transformer(state: ReadableStateLike):
                 start_input_schema = {"a": "${user.inputs.a}", "b": "${user.inputs.b}", "c": "${user.inputs.c}",
                                       "d": "${user.inputs.d}"}
                 return state.get(start_input_schema)
+
             flow.set_start_comp("start", MockStartNode("start"), inputs_transformer=start_input_transformer)
             flow.add_workflow_comp("a", Node1("a"), inputs_schema={"a": "${start.a}"})
             flow.add_workflow_comp("a1", SlowNode("a1", 1), inputs_schema={"a": "${a.a}"})
@@ -159,11 +163,10 @@ class WorkflowTest(unittest.TestCase):
             flow.add_connection("collect", "end")
             if waitForAll:
                 self.assert_workflow_invoke({"a": 1, "b": 2, "c": 3, "d": 4}, create_context(), flow,
-                                        expect_results={"result": 1})
+                                            expect_results={"result": 1})
             else:
                 self.assert_workflow_invoke({"a": 1, "b": 2, "c": 3, "d": 4}, create_context(), flow,
-                                        expect_results={"result": 2})
-
+                                            expect_results={"result": 2})
 
     def test_workflow_with_branch(self):
         context = create_context()
@@ -236,7 +239,6 @@ class WorkflowTest(unittest.TestCase):
 
         result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, context, flow)
         assert result == {"array_result": [14, 15], "user_var": 22}
-
 
     def test_workflow_with_loop_break(self):
         flow = create_flow()
@@ -353,6 +355,164 @@ class WorkflowTest(unittest.TestCase):
 
             index = 0
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
+                print(f"stream chunk: {chunk}")
+                index += 1
+
+        self.loop.run_until_complete(stream_workflow())
+
+    def test_seq_exec_stream_workflow(self):
+        async def stream_workflow():
+            flow = create_flow()
+            flow.set_start_comp("start", MockStartNode("start"),
+                                inputs_schema={
+                                    "a": "${user.inputs.a}",
+                                    "b": "${user.inputs.b}",
+                                    "c": 1,
+                                    "d": [1, 2, 3]})
+
+            node_a_expected_datas = [
+                {"node_id": "a", "id": 1, "data": "1"},
+                {"node_id": "a", "id": 2, "data": "2"},
+            ]
+            node_a_expected_datas_model = [CustomSchema(**item) for item in node_a_expected_datas]
+            flow.add_workflow_comp("a", StreamNode("a", node_a_expected_datas),
+                                   inputs_schema={
+                                       "aa": "${start.a}",
+                                       "ac": "${start.c}"})
+
+            node_b_expected_datas = [
+                {"node_id": "b", "id": 1, "data": "1"},
+                {"node_id": "b", "id": 2, "data": "2"},
+            ]
+            node_b_expected_datas_model = [CustomSchema(**item) for item in node_b_expected_datas]
+            flow.add_workflow_comp("b", StreamNode("b", node_b_expected_datas),
+                                   inputs_schema={
+                                       "ba": "${a.aa}",
+                                       "bc": "${a.ac}"})
+
+            flow.set_end_comp("end", MockEndNode("end"),
+                              inputs_schema={
+                                  "result": "${b.ba}"})
+
+            flow.add_connection("start", "a")
+            flow.add_connection("a", "b")
+            flow.add_connection("b", "end")
+
+            expected_datas_model = {
+                "a": node_a_expected_datas_model,
+                "b": node_b_expected_datas_model
+            }
+            index_dict = {key: 0 for key in expected_datas_model.keys()}
+            async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                node_id = chunk.node_id
+                index = index_dict[node_id]
+                assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
+                print(f"stream chunk: {chunk}")
+                index_dict[node_id] = index_dict[node_id] + 1
+
+        self.loop.run_until_complete(stream_workflow())
+
+    def test_parallel_exec_stream_workflow(self):
+        async def stream_workflow():
+            flow = create_flow()
+            flow.set_start_comp("start", MockStartNode("start"),
+                                inputs_schema={
+                                    "a": "${user.inputs.a}",
+                                    "b": "${user.inputs.b}",
+                                    "c": 1,
+                                    "d": [1, 2, 3]})
+
+            node_a_expected_datas = [
+                {"node_id": "a", "id": 1, "data": "1"},
+                {"node_id": "a", "id": 2, "data": "2"},
+            ]
+            node_a_expected_datas_model = [CustomSchema(**item) for item in node_a_expected_datas]
+            flow.add_workflow_comp("a", StreamNode("a", node_a_expected_datas),
+                                   inputs_schema={
+                                       "aa": "${start.a}",
+                                       "ac": "${start.c}"})
+
+            node_b_expected_datas = [
+                {"node_id": "b", "id": 1, "data": "1"},
+                {"node_id": "b", "id": 2, "data": "2"},
+            ]
+            node_b_expected_datas_model = [CustomSchema(**item) for item in node_b_expected_datas]
+            flow.add_workflow_comp("b", StreamNode("b", node_b_expected_datas),
+                                   inputs_schema={
+                                       "ba": "${start.b}",
+                                       "bc": "${start.d}"})
+
+            flow.set_end_comp("end", MockEndNode("end"),
+                              inputs_schema={
+                                  "result": "${b.ba}"})
+
+            flow.add_connection("start", "a")
+            flow.add_connection("start", "b")
+            flow.add_connection("a", "end")
+            flow.add_connection("b", "end")
+
+            expected_datas_model = {
+                "a": node_a_expected_datas_model,
+                "b": node_b_expected_datas_model
+            }
+            index_dict = {key: 0 for key in expected_datas_model.keys()}
+            async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                node_id = chunk.node_id
+                index = index_dict[node_id]
+                assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
+                print(f"stream chunk: {chunk}")
+                index_dict[node_id] = index_dict[node_id] + 1
+
+        self.loop.run_until_complete(stream_workflow())
+
+    def test_sub_stream_workflow(self):
+        async def stream_workflow():
+            # sub_workflow: start->a(stream out)->end
+            sub_workflow = create_flow()
+            sub_workflow.set_start_comp("sub_start", MockStartNode("start"),
+                                        inputs_schema={
+                                            "a": "${user.inputs.a}",
+                                            "b": "${user.inputs.b}",
+                                            "c": 1,
+                                            "d": [1, 2, 3]})
+            expected_datas = [
+                {"node_id": "sub_start", "id": 1, "data": "1"},
+                {"node_id": "sub_start", "id": 2, "data": "2"},
+            ]
+            expected_datas_model = [CustomSchema(**item) for item in expected_datas]
+
+            sub_workflow.add_workflow_comp("sub_a", StreamNode("a", expected_datas),
+                                           inputs_schema={
+                                               "aa": "${sub_start.a}",
+                                               "ac": "${sub_start.c}"})
+            sub_workflow.set_end_comp("sub_end", MockEndNode("end"),
+                                      inputs_schema={
+                                          "result": "${sub_a.aa}"})
+            sub_workflow.add_connection("sub_start", "sub_a")
+            sub_workflow.add_connection("sub_a", "sub_end")
+
+            # main_workflow: start->a(sub workflow)->end
+            main_workflow = create_flow()
+            main_workflow.set_start_comp("start", MockStartNode("start"),
+                                         inputs_schema={
+                                             "a": "${user.inputs.a}",
+                                             "b": "${user.inputs.b}",
+                                             "c": 1,
+                                             "d": [1, 2, 3]})
+
+            main_workflow.add_workflow_comp("a", StreamNodeWithSubWorkflow("a", sub_workflow),
+                                            inputs_schema={
+                                                "aa": "${start.a}",
+                                                "ac": "${start.c}"})
+            main_workflow.set_end_comp("end", MockEndNode("end"),
+                                       inputs_schema={
+                                           "result": "${a.aa}"})
+            main_workflow.add_connection("start", "a")
+            main_workflow.add_connection("a", "end")
+
+            index = 0
+            async for chunk in main_workflow.stream({"a": 1, "b": "haha"}, create_context()):
                 assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
                 print(f"stream chunk: {chunk}")
                 index += 1
