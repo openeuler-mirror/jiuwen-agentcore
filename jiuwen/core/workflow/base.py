@@ -2,7 +2,6 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import asyncio
-from functools import partial
 from typing import Self, Dict, Any, Union, AsyncIterator, Iterator
 
 from pydantic import BaseModel
@@ -129,7 +128,10 @@ class Workflow:
             raise JiuWenBaseException(1, "failed to init context")
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
-        asyncio.create_task(compiled_graph.invoke(inputs, context))
+        async def stream_process():
+            await compiled_graph.invoke(inputs, context)
+            await context.stream_writer_manager.stream_emitter.close()
+        asyncio.create_task(stream_process())
         async for chunk in context.stream_writer_manager.stream_output():
             yield chunk
 

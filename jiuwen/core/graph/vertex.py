@@ -34,7 +34,7 @@ class Vertex:
                 self.__post_invoke__(results)
         except JiuWenBaseException as e:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
-        return {"source_node_id": self._node_id}
+        return {"source_node_id": [self._node_id]}
 
     def __pre_invoke__(self) -> Optional[dict]:
         inputs_transformer = self._context.config.get_input_transformer(self._node_id)
