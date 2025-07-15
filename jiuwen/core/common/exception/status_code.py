@@ -8,7 +8,7 @@ class StatusCode(Enum):
     CONTROLLER_INTERRUPTED_ERROR = (10312, "controller interrupted error")
     PROMPT_JSON_SCHEMA_ERROR = (102056, "Invalid json schema, root cause = {error_msg}.")
 
-    # Prompt 模板管理 102050 - 102099
+    # Prompt 模板填充 102050 - 102099
     PROMPT_ASSEMBLER_VARIABLE_INIT_ERROR = (102050, "Wrong arguments for initializing the variable")
     PROMPT_ASSEMBLER_INIT_ERROR = (102051, "Wrong arguments for initializing the assembler")
     PROMPT_ASSEMBLER_INPUT_KEY_ERROR = (
@@ -27,6 +27,14 @@ class StatusCode(Enum):
     # Prompt 模板管理 102100 - 102149
     PROMPT_TEMPLATE_DUPLICATED_ERROR = (102101, "Template duplicated")
     PROMPT_TEMPLATE_NOT_FOUND_ERROR = (102102, "Template not found")
+
+    # 插件管理  105000~105999
+    PLUGIN_UNEXPECTED_ERROR = (105001, "Plugin unexpected error")
+    PLUGIN_REQUEST_TIMEOUT_ERROR = (105002, "Plugin restful api request timed out")
+    PLUGIN_PROXY_CONNECT_ERROR = (105003, "Plugin restful api proxy connection error")
+    PLUGIN_RESPONSE_TOO_BIG_ERROR = (105004, "Plugin restful api  response too big")
+    PLUGIN_RESPONSE_HTTP_CODE_ERROR = (105005, "Plugin restful api http code error")
+    PLUGIN_PARAMS_CHECK_FAILED = (105006, "Plugin params check failed")
 
     # LLM组件 101561-101590
     WORKFLOW_LLM_INIT_ERROR = (101561, "LLM component initialization error, msg = {msg}")

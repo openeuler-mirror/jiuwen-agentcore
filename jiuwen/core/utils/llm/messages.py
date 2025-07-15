@@ -18,6 +18,7 @@ class Function(BaseModel):
 class ToolInfo(BaseModel):
     type: str = "function"
     function: Function
+    results: Any = {}
 
 class ToolCall(BaseModel):
     name: str
