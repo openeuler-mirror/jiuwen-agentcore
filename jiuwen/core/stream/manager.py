@@ -42,7 +42,7 @@ class StreamWriterManager:
                     logger.info(f"Received stream data: {data}")
                     yield data
             else:
-                logger.warn("No data received, waiting foe data.")
+                logger.warn("No data received, waiting for data.")
 
     def add_writer(self, key: StreamMode, writer: StreamWriter) -> None:
         self._writers[key] = writer

@@ -11,23 +11,28 @@ from jiuwen.core.graph.executable import Executable, Output, Input
 
 
 class ExecutableGraph(Executable[Input, Output]):
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         pass
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         pass
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
         pass
+
+    async def interrupt(self, message: dict):
+        pass
+
 
 Router = Union[
     Callable[..., Union[Hashable, list[Hashable]]],
     Callable[..., Awaitable[Union[Hashable, list[Hashable]]]],
     Runnable[Any, Union[Hashable, list[Hashable]]],
 ]
+
 
 class Graph(ABC):
     def start_node(self, node_id: str) -> Self:

@@ -14,23 +14,24 @@ class CommonNode(Executable, WorkflowComponent):
         super().__init__()
         self.node_id = node_id
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         return inputs
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        yield await self.invoke(inputs, context)
+
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
-        yield self.invoke(inputs, context)
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.ainvoke(inputs, context)
-
-    def interrupt(self, message: dict):
+    async def interrupt(self, message: dict):
         pass
 
     def to_executable(self) -> Executable:
         return self
+
 
 class AddTenNode(Executable, WorkflowComponent):
 
@@ -38,19 +39,19 @@ class AddTenNode(Executable, WorkflowComponent):
         super().__init__()
         self.node_id = node_id
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         return {"result": inputs["source"] + 10}
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        yield await self.invoke(inputs, context)
+
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
-        yield self.invoke(inputs, context)
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.ainvoke(inputs, context)
-
-    def interrupt(self, message: dict):
+    async def interrupt(self, message: dict):
         pass
 
     def to_executable(self) -> Executable:

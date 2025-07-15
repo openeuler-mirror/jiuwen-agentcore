@@ -8,6 +8,7 @@ from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
 
+
 class Vertex:
     def __init__(self, node_id: str, executable: Executable = None):
         self._node_id = node_id
@@ -18,17 +19,17 @@ class Vertex:
         self._context = context
         return True
 
-    def __call__(self, state: GraphState) -> Output:
+    async def __call__(self, state: GraphState) -> Output:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
         inputs = self.__pre_invoke__()
         is_stream = self.__is_stream__(state)
         try:
             if is_stream:
-                result_iter = self._executable.stream(inputs, context=self._context)
+                result_iter = await self._executable.stream(inputs, context=self._context)
                 self.__post_stream__(result_iter)
             else:
-                results = self._executable.invoke(inputs, context=self._context)
+                results = await self._executable.invoke(inputs, context=self._context)
                 self.__post_invoke__(results)
         except JiuWenBaseException as e:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
@@ -55,4 +56,3 @@ class Vertex:
 
     def __is_stream__(self, state: GraphState) -> bool:
         return False
-

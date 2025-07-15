@@ -96,45 +96,29 @@ class Workflow:
         self._graph.add_conditional_edges(source_node_id=src_comp_id, router=router)
         return self
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
                             workflow_config=self._workflow_config):
             return None
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
         context.state.io_state.commit()
-        compiled_graph.invoke(inputs, context)
+        await compiled_graph.invoke(inputs, context)
         return context.state.get_outputs(self._end_comp_id)
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context = context), inputs
-        )
-
-    def stream(
-            self,
-            inputs: Input,
-            context: Context,
-            stream_modes: list[StreamMode] = None
-    ) -> Iterator[WorkflowChunk]:
-        if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
-                            workflow_config=self._workflow_config, stream_modes=stream_modes):
-            raise JiuWenBaseException(1, "failed to init context")
-        compiled_graph = self._graph.compile(context)
-        context.state.set_user_inputs(inputs)
-        compiled_graph.invoke(inputs, context)
-        yield from context.stream_writer_manager.stream_output()
-
-
-    async def astream(
+    async def stream(
             self,
             inputs: Input,
             context: Context,
             stream_modes: list[str] = None
     ) -> AsyncIterator[WorkflowChunk]:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.stream, context=context, stream_modes = stream_modes), inputs
-        )
+        if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
+                            workflow_config=self._workflow_config, stream_modes=stream_modes):
+            raise JiuWenBaseException(1, "failed to init context")
+        compiled_graph = self._graph.compile(context)
+        context.state.set_user_inputs(inputs)
+        await compiled_graph.invoke(inputs, context)
+        return context.stream_writer_manager.stream_output()
 
     def _convert_to_component(self, executable: Executable) -> WorkflowComponent:
         pass
