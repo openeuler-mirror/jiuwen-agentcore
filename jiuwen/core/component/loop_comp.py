@@ -23,18 +23,17 @@ from jiuwen.graph.factory import GraphFactory
 
 class EmptyExecutable(Executable):
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context), inputs)
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        pass
+
+    async def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
         yield self.invoke(inputs, context)
-
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.ainvoke(inputs, context)
 
     def interrupt(self, message: dict):
         return
@@ -49,9 +48,10 @@ class LoopGroup:
                       inputs_schema: dict = None, outputs_schema: dict = None,
                       inputs_transformer: Transformer = None, outputs_transformer: Transformer = None) -> Self:
         component.add_component(self._graph, node_id, wait_for_all=wait_for_all)
-        self._context.config.set_comp_io_config(node_id,CompIOConfig(inputs_schema = inputs_schema,
-            outputs_schema = outputs_schema, inputs_transformer = inputs_transformer,
-            outputs_transformer = outputs_transformer))
+        self._context.config.set_comp_io_config(node_id, CompIOConfig(inputs_schema=inputs_schema,
+                                                                      outputs_schema=outputs_schema,
+                                                                      inputs_transformer=inputs_transformer,
+                                                                      outputs_transformer=outputs_transformer))
         return self
 
     def start_nodes(self, nodes: list[str]) -> Self:

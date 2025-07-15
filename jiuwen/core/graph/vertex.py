@@ -51,7 +51,7 @@ class Vertex:
         output_transformer = self._context.config.get_output_transformer(self._node_id)
         if output_transformer is None:
             output_schema = self._context.config.get_outputs_schema(self._node_id)
-            results = get_by_schema(output_schema, results)
+            results = get_by_schema(output_schema, results) if output_schema else results
         else:
             results = output_transformer(results)
         self._context.state.set_outputs(self._node_id, results)

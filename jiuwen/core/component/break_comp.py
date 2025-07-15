@@ -36,18 +36,17 @@ class BreakComponent(WorkflowComponent, Executable):
     def to_executable(self) -> Executable:
         return self
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         if self._loop_controller is None:
             raise RuntimeError('Loop controller not initialized')
         self._loop_controller.break_loop()
         return {}
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context), inputs)
-
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
         yield self.invoke(inputs, context)
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.ainvoke(inputs, context)
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
+        pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass

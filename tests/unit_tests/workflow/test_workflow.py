@@ -54,15 +54,18 @@ DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
 
 
 class WorkflowTest(unittest.TestCase):
-    def assert_workflow_invoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
-                                checker: Callable = None):
+    def invoke_workflow(self, inputs: dict, context: Context, flow: Workflow):
         loop = asyncio.get_event_loop()
         feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context))
         loop.run_until_complete(feature)
+        return feature.result()
+
+    def assert_workflow_invoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
+                               checker: Callable = None):
         if expect_results is not None:
-            assert feature.result() == expect_results
+            assert self.invoke_workflow(inputs, context, flow) == expect_results
         elif checker is not None:
-            checker(feature.result())
+            checker(self.invoke_workflow(inputs, context, flow))
 
     def test_simple_workflow(self):
         """
@@ -141,10 +144,10 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("a", "end")
         flow.add_connection("b", "end")
 
-        result = flow.invoke({"a": 2}, context=context)
+        result = self.invoke_workflow({"a": 2}, context, flow)
         assert result["b"] == 12
 
-        result = flow.invoke({"a": 15}, context=context)
+        result = self.invoke_workflow({"a": 15}, context, flow)
         assert result["a"] == 15
 
     def test_workflow_with_loop(self):
@@ -184,10 +187,10 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("l", "b")
         flow.add_connection("b", "e")
 
-        result = flow.invoke({"input_array": [1, 2, 3], "input_number": 1}, context=context)
+        result = self.invoke_workflow({"input_array": [1, 2, 3], "input_number": 1}, context, flow)
         assert result == {"array_result": [11, 12, 13], "user_var": 31}
 
-        result = flow.invoke({"input_array": [4, 5], "input_number": 2}, context=context)
+        result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, context, flow)
         assert result == {"array_result": [14, 15], "user_var": 22}
 
     def test_workflow_with_loop_break(self):
@@ -230,10 +233,10 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("l", "b")
         flow.add_connection("b", "e")
 
-        result = flow.invoke({"input_array": [1, 2, 3], "input_number": 1}, context=context)
+        result = self.invoke_workflow({"input_array": [1, 2, 3], "input_number": 1}, context, flow)
         assert result == {"array_result": [11], "user_var": 11}
 
-        result = flow.invoke({"input_array": [4, 5], "input_number": 2}, context=context)
+        result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, context, flow)
         assert result == {"array_result": [14], "user_var": 12}
 
     def test_workflow_with_loop_number_condition(self):
@@ -272,12 +275,11 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("l", "b")
         flow.add_connection("b", "e")
 
-        result = flow.invoke({"input_number": 1, "loop_number": 3}, context=context)
+        result = self.invoke_workflow({"input_number": 1, "loop_number": 3}, context, flow)
         assert result == {"array_result": [10, 11, 12], "user_var": 31}
 
-        result = flow.invoke({"input_number": 2, "loop_number": 2}, context=context)
+        result = self.invoke_workflow({"input_number": 2, "loop_number": 2}, context, flow)
         assert result == {"array_result": [10, 11], "user_var": 22}
-
 
     def test_simple_stream_workflow(self):
         async def stream_workflow():
@@ -306,6 +308,3 @@ class WorkflowTest(unittest.TestCase):
                 print(f"stream chunk: {chunk}")
 
         asyncio.run(stream_workflow())
-
-
-
