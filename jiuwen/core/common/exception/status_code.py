@@ -6,6 +6,7 @@ from enum import Enum
 
 class StatusCode(Enum):
     CONTROLLER_INTERRUPTED_ERROR = (10312, "controller interrupted error")
+    PROMPT_JSON_SCHEMA_ERROR = (102056, "Invalid json schema, root cause = {error_msg}.")
 
     # Prompt 模板管理 102050 - 102099
     PROMPT_ASSEMBLER_VARIABLE_INIT_ERROR = (102050, "Wrong arguments for initializing the variable")
