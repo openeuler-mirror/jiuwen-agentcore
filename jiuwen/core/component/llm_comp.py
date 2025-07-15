@@ -65,7 +65,7 @@ class LLMExecutable(Executable):
         try:
             self._set_context(context)
             model_inputs = self._prepare_model_inputs(inputs)
-            response = self._llm.invoke(model_inputs)
+            response = await self._llm.ainvoke(model_inputs)
             return self._create_output(response)
         except JiuWenBaseException:
             raise
