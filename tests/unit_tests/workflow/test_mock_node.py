@@ -49,7 +49,6 @@ class MockEndNode(EndComponent, MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         context.state.set_outputs(self.node_id, inputs)
-        await context.stream_writer_manager.stream_emitter.close()
         print("endNode: output = " + str(inputs))
         return inputs
 

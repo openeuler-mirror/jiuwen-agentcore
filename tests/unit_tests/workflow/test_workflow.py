@@ -293,8 +293,11 @@ class WorkflowTest(unittest.TestCase):
                                     "c": 1,
                                     "d": [1, 2, 3]})
             expected_datas = [
-                {"id": 1, "data": "1"}
+                {"id": 1, "data": "1"},
+                {"id": 2, "data": "2"},
             ]
+            expected_datas_model = [CustomSchema(**item) for item in expected_datas]
+
             flow.add_workflow_comp("a", StreamNode("a", expected_datas),
                                    inputs_schema={
                                        "aa": "${start.a}",
@@ -305,8 +308,10 @@ class WorkflowTest(unittest.TestCase):
             flow.add_connection("start", "a")
             flow.add_connection("a", "end")
 
+            index = 0
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
-                assert chunk == CustomSchema(id=1, data='1')
+                assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
                 print(f"stream chunk: {chunk}")
+                index += 1
 
-        asyncio.run(stream_workflow())
+        self.loop.run_until_complete(stream_workflow())

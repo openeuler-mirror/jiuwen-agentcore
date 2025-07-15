@@ -80,7 +80,8 @@ class CompiledGraph(ExecutableGraph):
         return await self._compiled_state_graph.ainvoke({"source_node_id": None})
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        return self._compiled_state_graph.astream({"source_node_id": None})
+        async for chunk in self._compiled_state_graph.astream({"source_node_id": None}):
+            yield chunk
 
     async def interrupt(self, message: dict):
         return
