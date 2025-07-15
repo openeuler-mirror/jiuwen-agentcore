@@ -2,20 +2,7 @@ import asyncio
 import time
 import uuid
 
-import sys
-import types
-from unittest.mock import Mock
-
-
-fake_base = types.ModuleType("base")
-fake_base.logger = Mock()
-
-fake_exception_module = types.ModuleType("base")
-fake_exception_module.JiuWenBaseException = Mock()
-
-sys.modules["jiuwen.core.common.logging.base"] = fake_base
-sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
-
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.runtime.callback_manager import CallbackManager
 from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
@@ -53,7 +40,7 @@ def tracer_workflow():
     
 async def stream_output():
     async for data in stream_writer_manager.stream_output():
-        print(f"Received data: {data}\n")
+        logger.info(f"Received data: {data}\n")
             
 class MockAgent:
     def invoke(self):

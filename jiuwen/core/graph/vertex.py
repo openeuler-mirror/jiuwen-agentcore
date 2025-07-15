@@ -4,6 +4,7 @@
 from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import get_by_schema
 from jiuwen.core.graph.executable import Executable, Output
@@ -24,6 +25,7 @@ class Vertex:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
         inputs = self.__pre_invoke__()
+        logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
         try:
             if is_stream:
@@ -54,6 +56,7 @@ class Vertex:
             results = get_by_schema(output_schema, results) if output_schema else results
         else:
             results = output_transformer(results)
+        logger.info("vertex[%s] outputs %s", self._node_id, results)
         self._context.state.set_outputs(self._node_id, results)
         # todo: need move to checkpoint
         self._context.state.io_state.commit()

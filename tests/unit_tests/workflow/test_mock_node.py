@@ -1,8 +1,7 @@
 import asyncio
-from typing import Iterator, AsyncIterator, Callable
+from typing import AsyncIterator
 
-from tenacity import sleep
-
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
@@ -41,7 +40,7 @@ class MockStartNode(StartComponent, MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         context.state.set_outputs(self.node_id, inputs)
-        print("start: output = " + str(inputs))
+        logger.info("start: output{%s} ", inputs)
         return inputs
 
 
@@ -51,8 +50,7 @@ class MockEndNode(EndComponent, MockNodeBase):
         self.node_id = node_id
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        context.state.set_outputs(self.node_id, inputs)
-        print("endNode: output = " + str(inputs))
+        logger.info("endNode: output %s ", inputs)
         return inputs
 
 
@@ -61,7 +59,7 @@ class Node1(MockNodeBase):
         super().__init__(node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        print(self.node_id + ": inputs = " + str(inputs))
+        logger.info(self.node_id + ": inputs = " + str(inputs))
         return inputs
 
 class CountNode(MockNodeBase):
@@ -72,7 +70,7 @@ class CountNode(MockNodeBase):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         self.times += 1
         result = {"count" : self.times}
-        print(self.node_id + ": results = " + str(result))
+        logger.info(self.node_id + ": results = " + str(result))
         return result
 
 class SlowNode(MockNodeBase):
@@ -82,7 +80,7 @@ class SlowNode(MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         await asyncio.sleep(self._wait)
-        print(self.node_id + ": input = " + str(inputs))
+        logger.info(self.node_id + ": input = " + str(inputs))
         return inputs
 
 class StreamNode(MockNodeBase):
@@ -94,9 +92,9 @@ class StreamNode(MockNodeBase):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for data in self._datas:
             await asyncio.sleep(0.1)
-            print(f"StreamNode[{self._node_id}], stream frame: {data}")
+            logger.info(f"StreamNode[{self._node_id}], stream frame: {data}")
             await context.stream_writer_manager.get_custom_writer().write(data)
-        print(f"StreamNode[{self._node_id}], batch output: {inputs}")
+        logger.info(f"StreamNode[{self._node_id}], batch output: {inputs}")
         return inputs
 
 class StreamNodeWithSubWorkflow(MockNodeBase):
@@ -108,7 +106,7 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         sub_context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
         async for chunk in self._sub_workflow.stream({"a": 1, "b": "haha"}, sub_context):
-            print(f"StreamNodeWithSubWorkflow[{self._node_id}], stream frame: {chunk}")
+            logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], stream frame: {chunk}")
             await context.stream_writer_manager.get_custom_writer().write(chunk)
-        print(f"StreamNodeWithSubWorkflow[{self._node_id}], batch output: {inputs}")
+        logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], batch output: {inputs}")
         return inputs
