@@ -14,8 +14,6 @@ from jiuwen.core.graph.executable import Executable, Input, Output
 
 
 class BranchComponent(WorkflowComponent, Executable):
-    def interrupt(self, message: dict):
-        pass
 
     def __init__(self, context: Context, executable: Executable = None):
         self._router = BranchRouter(context)
@@ -33,21 +31,23 @@ class BranchComponent(WorkflowComponent, Executable):
     def to_executable(self) -> Executable:
         return self
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         if self._executable:
             return self._executable.invoke(inputs, context)
         return inputs
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context), inputs)
-
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
         yield self.invoke(inputs, context)
-
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.ainvoke(inputs, context)
 
     def add_component(self, graph: Graph, node_id: str, wait_for_all: bool = False):
         graph.add_node(node_id, self.to_executable(), wait_for_all=wait_for_all)
         graph.add_conditional_edges(node_id, self.router())
+
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
+        pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
+
+    def interrupt(self, message: dict):
+        pass

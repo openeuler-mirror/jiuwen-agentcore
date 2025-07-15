@@ -2,12 +2,26 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 from abc import ABC
-from typing import TypedDict, Any
+from typing import TypedDict, Any, Callable, Optional
 
 
 class MetadataLike(TypedDict):
     name: str
     event: str
+
+
+Transformer = Callable[[dict], Any]
+
+
+class CompIOConfig(ABC):
+    def __init__(self, inputs_schema: dict = None,
+                 outputs_schema: dict = None,
+                 inputs_transformer: Transformer = None,
+                 outputs_transformer: Transformer = None):
+        self.inputs_schema = inputs_schema
+        self.outputs_schema = outputs_schema
+        self.inputs_transformer = inputs_transformer
+        self.outputs_transformer = outputs_transformer
 
 
 class Config(ABC):
@@ -22,28 +36,21 @@ class Config(ABC):
         self._callback_metadata: dict[str, MetadataLike] = {}
         self._env: dict = {}
         self._stream_edges: dict[str, list[str]] = {}
-        self._io_schemas: dict[str, tuple[dict, dict]] = {}
+        self._comp_io_configs: dict[str, CompIOConfig] = {}
         self.__load_envs__()
 
-    def init(self, io_schemas: dict[str, tuple[dict, dict]], stream_edges: dict[str, list[str]] = None) -> bool:
-        self.set_io_schemas(io_schemas)
+    def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None) -> bool:
         self.set_stream_edges(stream_edges)
+        self._comp_io_configs.update(comp_configs)
         return True
 
-    def set_io_schema(self, node_id: str, schema: tuple[dict, dict]) -> None:
+    def set_comp_io_config(self, node_id: str, comp_io_config: CompIOConfig) -> None:
         """
         set io schema of single node
         :param node_id: node id
-        :param schema: (inputs_schema, outputs_schema)
+        :param comp_io_config: component io config
         """
-        self._io_schemas[node_id] = schema
-
-    def set_io_schemas(self, schemas: dict[str, tuple[dict, dict]]) -> None:
-        """
-        set io schemas
-        :param schemas: schemas
-        """
-        self._io_schemas.update(schemas)
+        self._comp_io_configs[node_id] = comp_io_config
 
     def get_inputs_schema(self, node_id: str) -> dict:
         """
@@ -51,10 +58,43 @@ class Config(ABC):
         :param node_id: node id
         :return: inputs schema
         """
-        if node_id not in self._io_schemas:
+        if node_id not in self._comp_io_configs:
             return {}
         else:
-            return self._io_schemas[node_id][0]
+            return self._comp_io_configs[node_id].inputs_schema
+
+    def get_outputs_schema(self, node_id: str) -> dict:
+        """
+        get outputs schemas by specific node id
+        :param node_id: node id
+        :return: outputs schema
+        """
+        if node_id not in self._comp_io_configs:
+            return {}
+        else:
+            return self._comp_io_configs[node_id].outputs_schema
+
+    def get_input_transformer(self, node_id: str) -> Optional[Transformer]:
+        """
+        get inputs transformer by specific node id
+        :param node_id: node id
+        :return: transformer
+        """
+        if node_id not in self._comp_io_configs:
+            return None
+        else:
+            return self._comp_io_configs[node_id].inputs_transformer
+
+    def get_output_transformer(self, node_id: str) -> Optional[Transformer]:
+        """
+        get output transformer by specific node id
+        :param node_id: node id
+        :return: transformer
+        """
+        if node_id not in self._comp_io_configs:
+            return None
+        else:
+            return self._comp_io_configs[node_id].inputs_transformer
 
     def set_stream_edge(self, source_node_id: str, target_node_id: str) -> None:
         """

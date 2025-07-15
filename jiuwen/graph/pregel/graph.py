@@ -73,20 +73,14 @@ class PregelGraph(Graph):
 
 
 class CompiledGraph(ExecutableGraph):
-    def __init__(self, compiledStateGraph: CompiledStateGraph):
-        self._compiledStateGraph = compiledStateGraph
+    def __init__(self, compiled_state_graph: CompiledStateGraph):
+        self._compiled_state_graph = compiled_state_graph
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
-        return self._compiledStateGraph.invoke({"source_node_id": None})
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        return await self._compiled_state_graph.ainvoke({"source_node_id": None})
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
-        return self._compiledStateGraph.stream({"source_node_id": None})
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        return self._compiled_state_graph.astream({"source_node_id": None})
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return self._compiledStateGraph.ainvoke({"source_node_id": None})
-
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        return self._compiledStateGraph.astream({"source_node_id": None})
-
-    def interrupt(self, message: dict):
+    async def interrupt(self, message: dict):
         return

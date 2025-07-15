@@ -2,8 +2,6 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import asyncio
-from dataclasses import dataclass, Field
-from enum import Enum
 from functools import partial
 from typing import Self, Dict, Any, Union, AsyncIterator, Iterator
 
@@ -11,9 +9,11 @@ from pydantic import BaseModel
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
+from jiuwen.core.context.config import CompIOConfig, Transformer
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import Graph, Router
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.stream.base import StreamMode
 
 
 class WorkflowConfig(BaseModel):
@@ -35,7 +35,7 @@ class Workflow:
     def __init__(self, workflow_config: WorkflowConfig, graph: Graph = None):
         self._graph = graph
         self._workflow_config = workflow_config
-        self._comp_io_schemas: dict[str, tuple[dict, dict]] = dict()
+        self._comp_io_configs: dict[str, CompIOConfig] = {}
         self._stream_edges: dict[str, list[str]] = dict()
         self._end_comp_id: str = ""
 
@@ -46,12 +46,17 @@ class Workflow:
             *,
             wait_for_all: bool = False,
             inputs_schema: dict = None,
-            outputs_schema: dict = None
+            outputs_schema: dict = None,
+            inputs_transformer: Transformer = None,
+            outputs_transformer: Transformer = None,
+
     ) -> Self:
         if not isinstance(workflow_comp, WorkflowComponent):
             workflow_comp = self._convert_to_component(workflow_comp)
         workflow_comp.add_component(graph=self._graph, node_id=comp_id, wait_for_all=wait_for_all)
-        self._comp_io_schemas[comp_id] = (inputs_schema, outputs_schema)
+        self._comp_io_configs[comp_id] = CompIOConfig(inputs_schema=inputs_schema, outputs_schema=outputs_schema,
+                                                      inputs_transformer=inputs_transformer,
+                                                      outputs_transformer=outputs_transformer)
         return self
 
     def set_start_comp(
@@ -59,11 +64,15 @@ class Workflow:
             start_comp_id: str,
             component: StartComponent,
             inputs_schema: dict = None,
-            output_schema: dict = None
+            outputs_schema: dict = None,
+            inputs_transformer: Transformer = None,
+            outputs_transformer: Transformer = None
     ) -> Self:
         self._graph.add_node(start_comp_id, component)
         self._graph.start_node(start_comp_id)
-        self._comp_io_schemas[start_comp_id] = (inputs_schema, output_schema)
+        self._comp_io_configs[start_comp_id] = CompIOConfig(inputs_schema=inputs_schema, outputs_schema=outputs_schema,
+                                                            inputs_transformer=inputs_transformer,
+                                                            outputs_transformer=outputs_transformer)
         return self
 
     def set_end_comp(
@@ -71,11 +80,15 @@ class Workflow:
             end_comp_id: str,
             component: EndComponent,
             inputs_schema: dict = None,
-            output_schema: dict = None
+            outputs_schema: dict = None,
+            inputs_transformer: Transformer = None,
+            outputs_transformer: Transformer = None
     ) -> Self:
         self._graph.add_node(end_comp_id, component)
         self._graph.end_node(end_comp_id)
-        self._comp_io_schemas[end_comp_id] = (inputs_schema, output_schema)
+        self._comp_io_configs[end_comp_id] = CompIOConfig(inputs_schema=inputs_schema, outputs_schema=outputs_schema,
+                                                          inputs_transformer=inputs_transformer,
+                                                          outputs_transformer=outputs_transformer)
         self._end_comp_id = end_comp_id
         return self
 
@@ -95,46 +108,30 @@ class Workflow:
         self._graph.add_conditional_edges(source_node_id=src_comp_id, router=router)
         return self
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
-        if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        if not context.init(comp_configs=self._comp_io_configs, stream_edges=self._stream_edges,
                             workflow_config=self._workflow_config):
             return None
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
         context.state.io_state.commit()
-        compiled_graph.invoke(inputs, context)
+        await compiled_graph.invoke(inputs, context)
         return context.state.get_outputs(self._end_comp_id)
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
-        return await asyncio.get_running_loop().run_in_executor(
-            None, partial(self.invoke, context = context), inputs
-        )
-
-    def stream(
+    async def stream(
             self,
             inputs: Input,
             context: Context,
-            stream_modes: list[str] = None
-    ) -> Iterator[WorkflowChunk]:
-        if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
-                            workflow_config=self._workflow_config, stream_modes=stream_modes):
-            raise JiuWenBaseException(1, "failed to init context")
-        compiled_graph = self._graph.compile(context)
-        context.state.set_user_inputs(inputs)
-        yield from compiled_graph.stream(inputs, context)
-
-    async def astream(
-            self,
-            inputs: Input,
-            context: Context,
-            stream_modes: list[str] = None
+            stream_modes: list[StreamMode] = None
     ) -> AsyncIterator[WorkflowChunk]:
-        if not context.init(io_schemas=self._comp_io_schemas, stream_edges=self._stream_edges,
+        if not context.init(comp_configs=self._comp_io_configs, stream_edges=self._stream_edges,
                             workflow_config=self._workflow_config, stream_modes=stream_modes):
             raise JiuWenBaseException(1, "failed to init context")
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
-        yield await compiled_graph.astream(inputs, context)
+        asyncio.create_task(compiled_graph.invoke(inputs, context))
+        async for chunk in context.stream_writer_manager.stream_output():
+            yield chunk
 
     def _convert_to_component(self, executable: Executable) -> WorkflowComponent:
         pass
