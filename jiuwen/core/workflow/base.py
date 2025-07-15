@@ -129,8 +129,9 @@ class Workflow:
             raise JiuWenBaseException(1, "failed to init context")
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
-        await compiled_graph.invoke(inputs, context)
-        return context.stream_writer_manager.stream_output()
+        asyncio.create_task(compiled_graph.invoke(inputs, context))
+        async for chunk in context.stream_writer_manager.stream_output():
+            yield chunk
 
     def _convert_to_component(self, executable: Executable) -> WorkflowComponent:
         pass

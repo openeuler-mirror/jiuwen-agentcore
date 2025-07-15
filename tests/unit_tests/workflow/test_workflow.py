@@ -1,3 +1,16 @@
+import sys
+import types
+from unittest.mock import Mock
+
+fake_base = types.ModuleType("base")
+fake_base.logger = Mock()
+
+fake_exception_module = types.ModuleType("base")
+fake_exception_module.JiuWenBaseException = Mock()
+
+sys.modules["jiuwen.core.common.logging.base"] = fake_base
+sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
+
 import asyncio
 import unittest
 from collections.abc import Callable
@@ -19,6 +32,7 @@ from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.graph_state import GraphState
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
+from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.graph.pregel.graph import PregelGraph
 from test_node import AddTenNode, CommonNode
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode, Node1, StreamNode
@@ -41,17 +55,9 @@ DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
 
 class WorkflowTest(unittest.TestCase):
     def assert_workflow_invoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
-                               checker: Callable = None):
-        results = flow.invoke(inputs=inputs, context=context)
-        if expect_results is not None:
-            assert results == expect_results
-        elif checker is not None:
-            checker(results)
-
-    def assert_workflow_ainvoke(self, inputs: dict, context: Context, flow: Workflow, expect_results: dict = None,
                                 checker: Callable = None):
         loop = asyncio.get_event_loop()
-        feature = asyncio.ensure_future(flow.ainvoke(inputs=inputs, context=context))
+        feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context))
         loop.run_until_complete(feature)
         if expect_results is not None:
             assert feature.result() == expect_results
@@ -79,7 +85,6 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("start", "a")
         flow.add_connection("a", "end")
         self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result": 1})
-        self.assert_workflow_ainvoke({"a": 1, "b": "haha"}, create_context(), flow, expect_results={"result": 1})
 
     def test_simple_workflow_with_condition(self):
         """
@@ -112,7 +117,6 @@ class WorkflowTest(unittest.TestCase):
                 assert results["result2"] == "haha"
 
         self.assert_workflow_invoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
-        self.assert_workflow_ainvoke({"a": 1, "b": "haha"}, create_context(), flow, checker=checker)
 
     def test_workflow_with_branch(self):
         context = create_context()
@@ -276,21 +280,32 @@ class WorkflowTest(unittest.TestCase):
 
 
     def test_simple_stream_workflow(self):
-        flow = create_flow()
-        flow.set_start_comp("start", MockStartNode("start"),
-                            inputs_schema={
-                                "a": "${user.inputs.a}",
-                                "b": "${user.inputs.b}",
-                                "c": 1,
-                                "d": [1, 2, 3]})
-        expected_datas = [
-            {"id": 1, "data": "1"}
-        ]
-        flow.add_workflow_comp("a", StreamNode("a", expected_datas),
-                               inputs_schema={ "aa": "${start.a}", "ac": "${start.c}"})
-        flow.set_end_comp("end", MockEndNode("end"),
-                          inputs_schema={ "result": "${a.aa}"})
-        flow.add_connection("start", "a")
-        flow.add_connection("a", "end")
+        async def stream_workflow():
+            flow = create_flow()
+            flow.set_start_comp("start", MockStartNode("start"),
+                                inputs_schema={
+                                    "a": "${user.inputs.a}",
+                                    "b": "${user.inputs.b}",
+                                    "c": 1,
+                                    "d": [1, 2, 3]})
+            expected_datas = [
+                {"id": 1, "data": "1"}
+            ]
+            flow.add_workflow_comp("a", StreamNode("a", expected_datas),
+                                   inputs_schema={
+                                       "aa": "${start.a}",
+                                       "ac": "${start.c}"})
+            flow.set_end_comp("end", MockEndNode("end"),
+                              inputs_schema={
+                                  "result": "${a.aa}"})
+            flow.add_connection("start", "a")
+            flow.add_connection("a", "end")
 
-        flow.stream({"a": 1, "b": "haha"}, create_context())
+            async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                assert chunk == CustomSchema(id=1, data='1')
+                print(f"stream chunk: {chunk}")
+
+        asyncio.run(stream_workflow())
+
+
+
