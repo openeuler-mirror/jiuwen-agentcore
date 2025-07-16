@@ -4,11 +4,11 @@
 """Handler of Agent"""
 from typing import Dict, Callable
 
-from jiuwen.controller.common.enum import SubTaskType
+from jiuwen.agent.common.enum import SubTaskType
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 
 
-class AgentSdk:
+class AgentHandler:
     def __init__(self):
         self._function_map: Dict[SubTaskType, Callable[[dict], dict]] = {
             SubTaskType.WORKFLOW: self.invoke_workflow,
@@ -34,5 +34,5 @@ class AgentSdk:
         return dict()
 
 
-class AgentSdkImpl(AgentSdk):
+class AgentHandlerImpl(AgentHandler):
     pass

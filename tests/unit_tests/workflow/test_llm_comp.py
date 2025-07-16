@@ -129,7 +129,11 @@ class TestLLMExecutableInvoke:
 
         # 2. 构造工作流
         flow = create_flow()
-        flow.set_start_comp("start", MockStartNode("start"))
+        flow.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={
+                                "a": "${user.inputs.a}",
+                                "b": "${user.inputs.b}"})
+
         flow.set_end_comp(
             "end",
             MockEndNode("end"),
@@ -143,7 +147,8 @@ class TestLLMExecutableInvoke:
             output_config={"result": {"type": "string", "required": True}},
         )
         llm_comp = LLMComponent(config)
-        flow.add_workflow_comp("llm", llm_comp)
+        flow.add_workflow_comp("llm", llm_comp,
+                               inputs_schema={"a": "${start.a}"})
 
         flow.add_connection("start", "llm")
         flow.add_connection("llm", "end")
