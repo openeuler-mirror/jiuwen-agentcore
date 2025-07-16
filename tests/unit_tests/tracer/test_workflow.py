@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 from unittest.mock import Mock
@@ -44,6 +45,17 @@ def create_flow() -> Workflow:
 
 
 DEFAULT_WORKFLOW_CONFIG = WorkflowConfig()
+def record_tracer_info(tracer_chunks, file_path):
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            for chunk in tracer_chunks:
+                json_data = json.dumps(chunk.model_dump(), default=str, ensure_ascii=False)
+                f.write(json_data + "\n")
+        print(f"已保存到文件：{file_path}")
+    except Exception as e:
+        print(f"保存失败：{e}")
+
+
 
 
 class WorkflowTest(unittest.TestCase):
@@ -63,8 +75,8 @@ class WorkflowTest(unittest.TestCase):
         elif checker is not None:
             checker(self.invoke_workflow(inputs, context, flow))
 
-
     def test_seq_exec_stream_workflow_with_tracer(self):
+        tracer_chunks = []
         async def stream_workflow():
             flow = create_flow()
             flow.set_start_comp("start", MockStartNode("start"),
@@ -107,6 +119,7 @@ class WorkflowTest(unittest.TestCase):
                 "b": node_b_expected_datas_model
             }
             index_dict = {key: 0 for key in expected_datas_model.keys()}
+
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context_with_tracer()):
                 if not isinstance(chunk, TraceSchema):
                     node_id = chunk.node_id
@@ -116,5 +129,66 @@ class WorkflowTest(unittest.TestCase):
                     index_dict[node_id] = index_dict[node_id] + 1
                 else:
                     print(f"stream chunk: {chunk}")
+                    tracer_chunks.append(chunk)
 
         self.loop.run_until_complete(stream_workflow())
+        record_tracer_info(tracer_chunks, "test_seq_exec_stream_workflow_with_tracer.json")
+
+    def test_parallel_exec_stream_workflow_with_tracer(self):
+        tracer_chunks = []
+        async def stream_workflow():
+            flow = create_flow()
+            flow.set_start_comp("start", MockStartNode("start"),
+                                inputs_schema={
+                                    "a": "${user.inputs.a}",
+                                    "b": "${user.inputs.b}",
+                                    "c": 1,
+                                    "d": [1, 2, 3]})
+
+            node_a_expected_datas = [
+                {"node_id": "a", "id": 1, "data": "1"},
+                {"node_id": "a", "id": 2, "data": "2"},
+            ]
+            node_a_expected_datas_model = [CustomSchema(**item) for item in node_a_expected_datas]
+            flow.add_workflow_comp("a", StreamNodeWithTracer("a", node_a_expected_datas),
+                                   inputs_schema={
+                                       "aa": "${start.a}",
+                                       "ac": "${start.c}"})
+
+            node_b_expected_datas = [
+                {"node_id": "b", "id": 1, "data": "1"},
+                {"node_id": "b", "id": 2, "data": "2"},
+            ]
+            node_b_expected_datas_model = [CustomSchema(**item) for item in node_b_expected_datas]
+            flow.add_workflow_comp("b", StreamNodeWithTracer("b", node_b_expected_datas),
+                                   inputs_schema={
+                                       "ba": "${start.b}",
+                                       "bc": "${start.d}"})
+
+            flow.set_end_comp("end", MockEndNode("end"),
+                              inputs_schema={
+                                  "result": "${b.ba}"})
+
+            flow.add_connection("start", "a")
+            flow.add_connection("start", "b")
+            flow.add_connection("a", "end")
+            flow.add_connection("b", "end")
+
+            expected_datas_model = {
+                "a": node_a_expected_datas_model,
+                "b": node_b_expected_datas_model
+            }
+            index_dict = {key: 0 for key in expected_datas_model.keys()}
+            async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context_with_tracer()):
+                if not isinstance(chunk, TraceSchema):
+                    node_id = chunk.node_id
+                    index = index_dict[node_id]
+                    assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
+                    logger.info(f"stream chunk: {chunk}")
+                    index_dict[node_id] = index_dict[node_id] + 1
+                else:
+                    print(f"stream chunk: {chunk}")
+                    tracer_chunks.append(chunk)
+
+        self.loop.run_until_complete(stream_workflow())
+        record_tracer_info(tracer_chunks, "test_parallel_exec_stream_workflow_with_tracer.json")

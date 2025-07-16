@@ -86,8 +86,8 @@ class Vertex:
         trace_workflow_span_manager = self._context.tracer.tracer_workflow_span_manager()
         tracer_workflow_span = trace_workflow_span_manager.create_workflow_span(trace_workflow_span_manager.last_span)
         await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", span=tracer_workflow_span, inputs=inputs,
-                                           component_metadata={"component_type": "component_type"})
-        self._context.state.update_trace(tracer_workflow_span)
+                                           component_metadata={"component_type": self._node_id})
+        self._context.state.update_trace(tracer_workflow_span.invoke_id, tracer_workflow_span)
 
     async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
         trace_workflow_span = self._context.tracer.tracer_workflow_span_manager().last_span
