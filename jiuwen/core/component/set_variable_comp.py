@@ -14,7 +14,7 @@ from jiuwen.core.graph.executable import Executable, Input, Output
 class SetVariableComponent(WorkflowComponent, Executable):
 
     def __init__(self, node_id: str, context: Context, variable_mapping: dict[str, Any]):
-        self._context = context
+        self._context = context.create_executable_context(node_id)
         self._node_id = node_id
         self._variable_mapping = variable_mapping
 
@@ -25,9 +25,9 @@ class SetVariableComponent(WorkflowComponent, Executable):
                 left_ref_str = left
             if isinstance(right, str) and is_ref_path(right):
                 ref_str = extract_origin_key(right)
-                self._context.state.io_state.update(self._node_id, {left_ref_str: self._context.state.get(ref_str)})
+                self._context.state.update_io({left_ref_str: self._context.state.get(ref_str)})
                 continue
-            self._context.state.io_state.update(self._node_id, {left_ref_str: right})
+            self._context.state.update_io({left_ref_str: right})
 
         return None
 

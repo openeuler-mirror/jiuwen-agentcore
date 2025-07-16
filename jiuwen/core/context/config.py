@@ -38,7 +38,8 @@ class Config(ABC):
         self._comp_io_configs: dict[str, CompIOConfig] = {}
         self.__load_envs__()
 
-    def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None) -> bool:
+    def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None,
+             end_node_id: str = None) -> bool:
         self.set_stream_edges(stream_edges)
         self._comp_io_configs.update(comp_configs)
         return True

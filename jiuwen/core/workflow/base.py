@@ -114,8 +114,6 @@ class Workflow:
             return None
         logger.info("begin to invoke, input=%s", inputs)
         compiled_graph = self._graph.compile(context)
-        context.state.set_user_inputs(inputs)
-        context.state.io_state.commit()
         await compiled_graph.invoke(inputs, context)
         results = context.state.get_outputs(self._end_comp_id)
         logger.info("end to invoke, results=%s", results)
@@ -132,10 +130,12 @@ class Workflow:
             raise JiuWenBaseException(1, "failed to init context")
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
-        context.state.io_state.commit()
+        context.state.commit()
+
         async def stream_process():
             await compiled_graph.invoke(inputs, context)
             await context.stream_writer_manager.stream_emitter.close()
+
         asyncio.create_task(stream_process())
         async for chunk in context.stream_writer_manager.stream_output():
             yield chunk

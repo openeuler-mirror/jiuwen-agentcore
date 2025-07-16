@@ -27,12 +27,13 @@ class Vertex:
         inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
+        executable_context = self._context.create_executable_context(self._node_id)
         try:
             if is_stream:
-                result_iter = await self._executable.stream(inputs, context=self._context)
+                result_iter = await self._executable.stream(inputs, context=executable_context)
                 self.__post_stream__(result_iter)
             else:
-                results = await self._executable.invoke(inputs, context=self._context)
+                results = await self._executable.invoke(inputs, context=executable_context)
                 await self.__post_invoke__(results)
         except JiuWenBaseException as e:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
@@ -42,7 +43,7 @@ class Vertex:
         inputs_transformer = self._context.config.get_input_transformer(self._node_id)
         if inputs_transformer is None:
             inputs_schema = self._context.config.get_inputs_schema(self._node_id)
-            inputs = self._context.state.get_inputs(inputs_schema)
+            inputs = self._context.state.get_io(inputs_schema)
         else:
             inputs = self._context.state.get_inputs_by_transformer(inputs_transformer)
         if self._context.tracer is not None:
@@ -50,7 +51,6 @@ class Vertex:
         return inputs
 
     async def __post_invoke__(self, results: Optional[dict]) -> None:
-
         output_transformer = self._context.config.get_output_transformer(self._node_id)
         if output_transformer is None:
             output_schema = self._context.config.get_outputs_schema(self._node_id)
@@ -60,8 +60,7 @@ class Vertex:
         logger.info("vertex[%s] outputs %s", self._node_id, results)
         self._context.state.set_outputs(self._node_id, results)
         # todo: need move to checkpoint
-        self._context.state.io_state.commit()
-        self._context.state.global_state.commit()
+        self._context.state.commit()
         if self._context.tracer is not None:
             await self.__trace_outputs__(results)
 

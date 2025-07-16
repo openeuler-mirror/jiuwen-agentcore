@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any
 from dateutil.tz import tzlocal
 
-from jiuwen.core.common.exception.base import JiuWenBaseException
+from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.runtime.callback_manager import BaseHandler, trigger_event
 from jiuwen.core.stream.manager import StreamWriterManager

@@ -1,8 +1,11 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
+import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Union, Optional, Callable
+from typing import Any, Union, Optional, Callable, Self
+
+from jiuwen.core.common.logging.base import logger
 
 
 class ReadableStateLike(ABC):
@@ -30,7 +33,7 @@ class CommitState(StateLike):
         pass
 
     @abstractmethod
-    def rollback(self, failed_node_ids: list[str]) -> None:
+    def rollback(self, node_id: str) -> None:
         pass
 
     @abstractmethod
@@ -44,30 +47,16 @@ class State(ABC):
             io_state: CommitState,
             global_state: CommitState,
             comp_state: CommitState,
-            trace_state: dict = {}
+            trace_state: dict = {},
+            node_id: str = None
     ):
         self._io_state = io_state
         self._global_state = global_state
         self._trace_state = trace_state
         self._comp_state = comp_state
+        self._node_id = node_id
 
-    @property
-    def io_state(self) -> CommitState:
-        return self._io_state
-
-    @property
-    def trace_state(self) -> dict:
-        return self._trace_state
-
-    @property
-    def global_state(self) -> CommitState:
-        return self._global_state
-
-    @property
-    def comp_state(self) -> CommitState:
-        return self._comp_state
-
-    def get(self, key: Union[str, dict]) -> Optional[Any]:
+    def get(self, key: Union[str, list, dict]) -> Optional[Any]:
         if self._global_state is None:
             return None
         value = self._global_state.get(key)
@@ -75,33 +64,38 @@ class State(ABC):
             return self._io_state.get(key)
         return value
 
-    def update(self, node_id: str, data: dict) -> None:
+    def update(self, data: dict) -> None:
         if self._global_state is None:
             return
-        self._global_state.update(node_id, data)
+        self._global_state.update(self._node_id, data)
 
-    def update_io(self, node_id: str, data: dict) -> None:
+    def update_io(self, data: dict) -> None:
         if self._io_state is None:
             return
-        self._io_state.update(node_id, data)
+        self._io_state.update(self._node_id, data)
 
-    def update_trace(self, invoke_id: str, span):
-        self._trace_state.update({invoke_id: span})
+    def get_io(self, key: Union[str, list, dict]) -> Optional[Any]:
+        if self._io_state is None:
+            return
+        return self._io_state.get(key)
 
-    def update_comp(self, node_id: str, data: dict) -> None:
+    def update_trace(self, span):
+        self._trace_state.update({self._node_id: span})
+
+    def update_comp(self, data: dict) -> None:
         if self._comp_state is None:
             return
-        self._comp_state.update(node_id, data)
+        self._comp_state.update(self._node_id, data)
+
+    def get_comp(self, key: Union[str, list, dict]) -> Optional[Any]:
+        if self._comp_state is None:
+            return
+        return self._comp_state.get(key)
 
     def set_user_inputs(self, inputs: Any) -> None:
         if self._io_state is None:
             return
-        self._io_state.update("user", {"user.inputs": inputs})
-
-    def get_inputs(self, input_schemas: dict) -> dict:
-        if self._io_state is None or input_schemas is None:
-            return {}
-        return self._io_state.get(input_schemas)
+        self._io_state.update("user", {"user": {"inputs": inputs}})
 
     def get_inputs_by_transformer(self, transformer: Callable) -> dict:
         if self._io_state is None:
@@ -117,3 +111,27 @@ class State(ABC):
         if self._io_state is None or outputs is None:
             return
         return self._io_state.update(node_id, {node_id: outputs})
+
+    def create_executable_state(self, node_id: str) -> Self:
+        if self._node_id is not None:
+            node_id = self._node_id + "." + node_id
+        return State(io_state=self._io_state, global_state=self._global_state, comp_state=self._comp_state,
+                     trace_state=self._trace_state, node_id=node_id)
+
+    def commit(self) -> None:
+        self._io_state.commit()
+        self._comp_state.commit()
+        self._global_state.commit()
+
+    def rollback(self) -> None:
+        self._comp_state.rollback(self._node_id)
+        self._io_state.rollback(self._node_id)
+        self._global_state.rollback(self._node_id)
+
+    def get_updates(self) -> dict:
+        return {
+            "io": self._io_state.get_updates(self._node_id),
+            "global": self._global_state.get_updates(self._node_id),
+            "comp": self._comp_state.get_updates(self._node_id)
+        }
+

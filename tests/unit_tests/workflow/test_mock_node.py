@@ -110,3 +110,14 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
             await context.stream_writer_manager.get_custom_writer().write(chunk)
         logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], batch output: {inputs}")
         return inputs
+
+
+class CompositeWorkflowNode(MockNodeBase):
+    def __init__(self, node_id: str, sub_workflow: Workflow):
+        super().__init__(node_id)
+        self._node_id = node_id
+        self._sub_workflow = sub_workflow
+
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        return await self._sub_workflow.invoke(inputs, context)
+
