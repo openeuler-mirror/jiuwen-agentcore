@@ -34,5 +34,4 @@ class CompositeWorkflowNode(MockNodeBase):
         self._sub_workflow = sub_workflow
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        sub_context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
-        return await self._sub_workflow.invoke(inputs, sub_context)
+        return await self._sub_workflow.invoke(inputs, context)

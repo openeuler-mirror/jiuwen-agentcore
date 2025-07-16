@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
-from typing import Union, Self, Iterator, AsyncIterator
+from typing import Union, Self, AsyncIterator
 
 from langgraph.graph import StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -76,7 +76,7 @@ class CompiledGraph(ExecutableGraph):
     def __init__(self, compiled_state_graph: CompiledStateGraph):
         self._compiled_state_graph = compiled_state_graph
 
-    async def invoke(self, inputs: Input, context: Context) -> Output:
+    async def _invoke(self) -> Output:
         return await self._compiled_state_graph.ainvoke({"source_node_id": []})
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:

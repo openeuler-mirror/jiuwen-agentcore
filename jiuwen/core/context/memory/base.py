@@ -4,6 +4,7 @@
 from copy import deepcopy
 from typing import Union, Optional, Any, Callable
 
+from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.context.state import Transformer
 from jiuwen.core.context.state import CommitState, StateLike, State
 from jiuwen.core.context.utils import update_dict, get_by_schema
@@ -20,6 +21,8 @@ class InMemoryStateLike(StateLike):
         return transformer(self._state)
 
     def update(self, node_id: str, data: dict) -> None:
+        if node_id is None:
+            raise JiuWenBaseException(1, "can not update state by none node_id")
         update_dict(data, self._state)
 
 
@@ -29,6 +32,8 @@ class InMemoryCommitState(CommitState):
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
+        if node_id is None:
+            raise JiuWenBaseException(1, "can not update state by none node_id")
         if node_id not in self._updates:
             self._updates[node_id] = []
         self._updates[node_id].append(data)
@@ -40,13 +45,14 @@ class InMemoryCommitState(CommitState):
         self._updates.clear()
 
     def get_updates(self, node_id: str) -> list[dict]:
+        if node_id is None:
+            return [{"node_id": deepcopy(node), "updates": deepcopy(update)} for node, update in self._updates.items()]
         if node_id not in self._updates:
             return []
-        return deepcopy(self._updates[node_id])
+        return [{"node_id": node_id, "updates": deepcopy(self._updates[node_id])}]
 
-    def rollback(self, failed_node_ids: list[str]) -> None:
-        for node_id in failed_node_ids:
-            self._updates[node_id] = []
+    def rollback(self, node_id: str) -> None:
+        self._updates[node_id] = []
 
     def get_by_transformer(self, transformer: Transformer) -> Optional[Any]:
         return transformer(self._state)

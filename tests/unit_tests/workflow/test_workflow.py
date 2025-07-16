@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.context.state import ReadableStateLike
-from test_mock_node import SlowNode, CountNode, StreamNodeWithSubWorkflow
+from test_mock_node import SlowNode, CountNode, StreamNodeWithSubWorkflow, CompositeWorkflowNode
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.break_comp import BreakComponent
@@ -507,3 +507,32 @@ class WorkflowTest(unittest.TestCase):
                 index += 1
 
         self.loop.run_until_complete(stream_workflow())
+
+    def test_nested_workflow(self):
+        flow1 = create_flow()
+        flow1.set_start_comp("start", MockStartNode("start"),
+                             inputs_schema={
+                                 "a1": "${user.inputs.a1}",
+                                 "a2": "${user.inputs.a2}"})
+
+        # start2->a2->end2
+        flow2 = create_flow()
+        flow2.set_start_comp("start2", MockStartNode("start2"), inputs_schema={"a1": "${user.inputs.result}"})
+        flow2.add_workflow_comp("a2", Node1("a2"), inputs_schema={"value": "${start2.a1}"})
+        flow2.set_end_comp("end2", MockEndNode("end2"), inputs_schema={"result": "${a2.value}"})
+        flow2.add_connection("start2", "a2")
+        flow2.add_connection("a2", "end2")
+
+        # flow2: start->a1|composite->end
+        flow1.add_workflow_comp("a1", Node1("a1"), inputs_schema={"value": "${start.a1}"})
+        flow1.add_workflow_comp("composite", CompositeWorkflowNode("composite", flow2),
+                                inputs_schema={"result": "${start.a2}"})
+
+        flow1.set_end_comp("end", MockEndNode("end"), inputs_schema={"b1": "${a1.value}", "b2": "${composite.result}"})
+        flow1.add_connection("start", "a1")
+        flow1.add_connection("start", "composite")
+        flow1.add_connection("a1", "end")
+        flow1.add_connection("composite", "end")
+        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": 2})
+
+

@@ -1,7 +1,7 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Self, Union, Any, AsyncIterator, Iterator, Hashable, Callable, Awaitable
 
 from langchain_core.runnables import Runnable
@@ -12,7 +12,9 @@ from jiuwen.core.graph.executable import Executable, Output, Input
 
 class ExecutableGraph(Executable[Input, Output]):
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        pass
+        context.state.set_user_inputs(inputs)
+        context.state.commit()
+        return await self._invoke()
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         pass
@@ -25,6 +27,10 @@ class ExecutableGraph(Executable[Input, Output]):
 
     async def interrupt(self, message: dict):
         pass
+
+    @abstractmethod
+    async def _invoke(self) -> Output:
+       pass
 
 
 Router = Union[
