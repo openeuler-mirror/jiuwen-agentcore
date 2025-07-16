@@ -30,6 +30,7 @@ class StatusCode(Enum):
     # Prompt 模板管理 102100 - 102149
     PROMPT_TEMPLATE_DUPLICATED_ERROR = (102101, "Template duplicated")
     PROMPT_TEMPLATE_NOT_FOUND_ERROR = (102102, "Template not found")
+    PROMPT_TEMPLATE_INCORRECT_ERROR = (102103, "Template data incorrect")
 
     # 插件管理  105000~105999
     PLUGIN_UNEXPECTED_ERROR = (105001, "Plugin unexpected error")

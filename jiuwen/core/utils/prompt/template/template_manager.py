@@ -3,6 +3,9 @@ import os
 from typing import Callable, List
 
 from jiuwen.core.common.logging.base import logger
+
+from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.utils.prompt.assemble.message_handler import messages_to_template, template_to_messages
 from jiuwen.core.utils.prompt.common.singleton import Singleton
 from jiuwen.core.utils.prompt.index.template_store.in_memory_template_store import InMemoryTemplateStore
@@ -45,7 +48,7 @@ class TemplateManager(metaclass=Singleton):
         """init customer templates"""
         customer_templates_path = os.environ.get("PROMPT_DEFAULT_TEMPLATES_PATH", None)
         if not customer_templates_path:
-            logger.warn("Customer templates path is not set")
+            logger.warning("Customer templates path is not set")
             return
         self.__load_default_templates_dir(customer_templates_path)
 
@@ -70,6 +73,11 @@ class TemplateManager(metaclass=Singleton):
 
     def register(self, template: Template, force: bool = False):
         """register template"""
+        if not template.name:
+            raise JiuWenBaseException(
+                error_code=StatusCode.PROMPT_TEMPLATE_INCORRECT_ERROR.code,
+                message="Template data is missing `name` field when registering."
+            )
         template_copy = copy.deepcopy(template)
         if isinstance(template_copy.content, list):
             template_copy.content = messages_to_template(template_copy.content)

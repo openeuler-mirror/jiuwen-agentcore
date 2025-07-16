@@ -5,6 +5,8 @@ from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.utils.prompt.assemble.variables.variable import Variable
 
+TEMPLATE_VARIABLE_PLACEHOLDER_PATTERN = r"\{\{(.*?)\}\}"
+
 
 class TextableVariable(Variable):
     """Variable class for processing string-type placeholders"""
@@ -12,7 +14,7 @@ class TextableVariable(Variable):
         clean_text = text
         placeholders = []
         input_keys = []
-        placeholder_matches = re.finditer(r"\{\{(.*?)\}\}", text)
+        placeholder_matches = re.finditer(TEMPLATE_VARIABLE_PLACEHOLDER_PATTERN, text)
         for match in placeholder_matches:
             placeholder = match.group(1).strip()
             if len(placeholder) == 0:
