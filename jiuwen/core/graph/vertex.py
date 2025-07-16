@@ -24,7 +24,7 @@ class Vertex:
     async def __call__(self, state: GraphState) -> Output:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
-        inputs = self.__pre_invoke__()
+        inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
         try:
@@ -33,12 +33,12 @@ class Vertex:
                 self.__post_stream__(result_iter)
             else:
                 results = await self._executable.invoke(inputs, context=self._context)
-                self.__post_invoke__(results)
+                await self.__post_invoke__(results)
         except JiuWenBaseException as e:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
         return {"source_node_id": [self._node_id]}
 
-    def __pre_invoke__(self) -> Optional[dict]:
+    async def __pre_invoke__(self) -> Optional[dict]:
         inputs_transformer = self._context.config.get_input_transformer(self._node_id)
         if inputs_transformer is None:
             inputs_schema = self._context.config.get_inputs_schema(self._node_id)
@@ -46,10 +46,11 @@ class Vertex:
         else:
             inputs = self._context.state.get_inputs_by_transformer(inputs_transformer)
         if self._context.tracer is not None:
-            self.__trace_inputs__(inputs)
+            await self.__trace_inputs__(inputs)
         return inputs
 
-    def __post_invoke__(self, results: Optional[dict]) -> None:
+    async def __post_invoke__(self, results: Optional[dict]) -> None:
+
         output_transformer = self._context.config.get_output_transformer(self._node_id)
         if output_transformer is None:
             output_schema = self._context.config.get_outputs_schema(self._node_id)
@@ -61,13 +62,36 @@ class Vertex:
         # todo: need move to checkpoint
         self._context.state.io_state.commit()
         self._context.state.global_state.commit()
-        pass
+        if self._context.tracer is not None:
+            await self.__trace_outputs__(results)
 
     def __post_stream__(self, results_iter: Any) -> None:
         pass
 
-    def __trace_inputs__(self, inputs: Optional[dict]) -> None:
-        pass
+    async def __trace_inputs__(self, inputs: Optional[dict]) -> None:
+        # TODO 组件信息
+        # TODO 传入嵌套组件的invoke_id作为被嵌套组件的parent_invoke_id
+        # #
+        """
+        EI: workflow:
+        start -> 嵌套-> llm -> end， start.parent_invoke_id="", llm.parent_invoke_id="start", end.parent_invoke_id="llm"
+        子workflow:
+        start -> llm -> end， start.parent_invoke_id="", llm.parent_invoke_id="start", end.parent_invoke_id="llm"
+        parentNodeId = "父workflow中的嵌套组件id"
+        （子workflow情况，通过parentNodeId字段记录触发调用的component_id，获取嵌套关系）
+        """
+        # TODO 如果当前组件是workflow 并且
+        trace_workflow_span_manager = self._context.tracer.tracer_workflow_span_manager()
+        tracer_workflow_span = trace_workflow_span_manager.create_workflow_span(trace_workflow_span_manager.last_span)
+        await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", span=tracer_workflow_span, inputs=inputs,
+                                           component_metadata={"component_type": "component_type"})
+        self._context.state.update_trace(tracer_workflow_span.invoke_id, tracer_workflow_span)
+
+    async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
+        trace_workflow_span = self._context.tracer.tracer_workflow_span_manager().last_span
+        await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", span=trace_workflow_span,
+                                           outputs=outputs)
+        self._context.state.update_trace(trace_workflow_span.invoke_id, trace_workflow_span)
 
     def __is_stream__(self, state: GraphState) -> bool:
         return False

@@ -9,9 +9,11 @@ from pydantic import BaseModel
 from jiuwen.core.context.config import Config, CompIOConfig
 from jiuwen.core.context.state import State
 from jiuwen.core.context.store import Store
+from jiuwen.core.runtime.callback_manager import CallbackManager
 from jiuwen.core.stream.base import StreamMode
 from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
+from jiuwen.core.tracer.tracer import Tracer
 
 
 class Context(ABC):
@@ -24,6 +26,7 @@ class Context(ABC):
         self._stream_writer_manager = None
         self._workflow_config: BaseModel = None
         self._queue_manager = None
+        self._callback_manager = CallbackManager()
 
     def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None,
              workflow_config: BaseModel = None, stream_modes: list[StreamMode] = None) -> bool:
@@ -32,6 +35,8 @@ class Context(ABC):
         self._stream_emitter = StreamEmitter()
         self._stream_writer_manager = StreamWriterManager(stream_emitter=self._stream_emitter, modes=stream_modes)
         self._workflow_config = workflow_config
+        if isinstance(self._tracer, Tracer):
+            self._tracer.init(self._stream_writer_manager, self._callback_manager)
         return True
 
     @property

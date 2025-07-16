@@ -44,7 +44,7 @@ class CallbackManager:
         trigger_events = handler.get_trigger_events()
         self._trigger_events[handler_name] = trigger_events
         
-    def trigger(self, handler_class_name: str, event_name: str, **kwargs):
+    async def trigger(self, handler_class_name: str, event_name: str, **kwargs):
         if handler_class_name not in self._trigger_events or event_name not in self._trigger_events[
             handler_class_name
         ]:
@@ -52,7 +52,7 @@ class CallbackManager:
         handler = self._handlers[handler_class_name]
         if hasattr(handler, event_name):
             method = getattr(handler, event_name)
-            method(**kwargs)
+            await method(**kwargs)
             
     def register_handler(self, configs: dict):
         self._init_handler(configs)
