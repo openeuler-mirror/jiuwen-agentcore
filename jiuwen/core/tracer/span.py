@@ -45,6 +45,7 @@ class TraceWorkflowSpan(Span):
     status: Optional[str] = Field(default=None, alias="status")
     # for llm invoke data
     llm_invoke_data: Dict[str, dict] = Field(default=[], exclude=True) # 模型数据，临时存储
+    parent_component_id: str = Field(default="", exclude=True) # 用于嵌套情况记录父组件
     
 class SpanManager:
     """用于管理tracer handler运行期间的span"""
@@ -82,4 +83,13 @@ class SpanManager:
         
     def end_span(self):
         pass
+
+    @property
+    def last_span(self):
+        if not self._order:
+            return None
+        last_span_id = self._order[-1]
+        if last_span_id not in self._runtime_spans:
+            return None
+        return self._runtime_spans[last_span_id]
         

@@ -4,12 +4,15 @@
 from abc import ABC, abstractmethod
 from typing import Any, Union, Optional, Callable
 
+
 class ReadableStateLike(ABC):
     @abstractmethod
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
         pass
 
+
 Transformer = Callable[[ReadableStateLike], Any]
+
 
 class StateLike(ReadableStateLike):
     @abstractmethod
@@ -19,6 +22,7 @@ class StateLike(ReadableStateLike):
     @abstractmethod
     def update(self, node_id: str, data: dict) -> None:
         pass
+
 
 class CommitState(StateLike):
     @abstractmethod
@@ -33,13 +37,14 @@ class CommitState(StateLike):
     def get_updates(self, node_id: str) -> list[dict]:
         pass
 
+
 class State(ABC):
     def __init__(
             self,
             io_state: CommitState,
             global_state: CommitState,
-            trace_state: StateLike,
-            comp_state: CommitState
+            comp_state: CommitState,
+            trace_state: dict = {}
     ):
         self._io_state = io_state
         self._global_state = global_state
@@ -51,7 +56,7 @@ class State(ABC):
         return self._io_state
 
     @property
-    def trace_state(self) -> StateLike:
+    def trace_state(self) -> dict:
         return self._trace_state
 
     @property
@@ -80,10 +85,8 @@ class State(ABC):
             return
         self._io_state.update(node_id, data)
 
-    def update_trace(self, node_id: str, data: dict) -> None:
-        if self._trace_state is None:
-            return
-        self._trace_state.update(node_id, data)
+    def update_trace(self, invoke_id: str, span):
+        self._trace_state.update({invoke_id: span})
 
     def update_comp(self, node_id: str, data: dict) -> None:
         if self._comp_state is None:
@@ -114,4 +117,3 @@ class State(ABC):
         if self._io_state is None or outputs is None:
             return
         return self._io_state.update(node_id, {node_id: outputs})
-

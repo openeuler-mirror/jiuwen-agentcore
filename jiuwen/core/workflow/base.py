@@ -132,6 +132,7 @@ class Workflow:
             raise JiuWenBaseException(1, "failed to init context")
         compiled_graph = self._graph.compile(context)
         context.state.set_user_inputs(inputs)
+        context.state.io_state.commit()
         async def stream_process():
             await compiled_graph.invoke(inputs, context)
             await context.stream_writer_manager.stream_emitter.close()

@@ -58,7 +58,7 @@ class InMemoryState(State):
     def __init__(self):
         super().__init__(io_state=InMemoryCommitState(),
                          global_state=InMemoryCommitState(),
-                         trace_state=InMemoryStateLike(),
+                         trace_state=dict(),
                          comp_state=InMemoryCommitState())
 
 
