@@ -3,19 +3,36 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, AsyncIterator, Iterator
+from typing import Dict, Any, AsyncIterator, Iterator, List
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.utils.tool.base import Tool
 
 
 @dataclass
 class ToolComponentConfig(ComponentConfig):
     header: Dict[str, Any] = field(default_factory=dict)
+    method: str = ''
+    auth: Dict[str, Any] = field(default_factory=dict)
+    pluginDependency: Dict[str, Any] = field(default_factory=dict)
+    systemFields: Dict[str, Any] = field(default_factory=dict)
+    exceptionEnable: bool = False
+    description: str = ''
+    url: str = ''
+    streaming: bool = False
+    userFields: Dict[str, Any] = field(default_factory=dict)
+    response: List[Any] = field(default_factory=list)
+    name: str = ''
+    arguments: List[Any] = field(default_factory=list)
+    id: str = ''
+
     needValidate: bool = True
+    needConfirm: bool = False
+    apiId: str = ''
 
 
 class ToolExecutable(Executable):
@@ -23,9 +40,9 @@ class ToolExecutable(Executable):
     def __init__(self, config: ToolComponentConfig):
         super().__init__()
         self._config = config
-        self._tool = None
+        self._tool: Tool = None
 
-    def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context) -> Output:
         self._tool = self.get_tool(context)
         validated = inputs.get('validate', False)
         user_field = inputs.get('userFields', None)
@@ -33,7 +50,7 @@ class ToolExecutable(Executable):
             self.validate_require_params(user_field)
         formatted_inputs = prepare_inputs(user_field, self.get_tool_param())
         try:
-            response = self._tool.run(formatted_inputs)
+            response = self._tool.invoke(formatted_inputs)
             return self._create_output(response)
         except Exception as e:
             raise JiuWenBaseException(
@@ -41,26 +58,26 @@ class ToolExecutable(Executable):
                 message='tool component execution error'
             ) from e
 
-    async def ainvoke(self, inputs: Input, context: Context) -> Output:
+    async def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
         pass
 
-    def stream(self, inputs: Input, context: Context) -> Iterator[Output]:
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
-    async def astream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
         pass
 
-    def interrupt(self, message: dict):
+    async def interrupt(self, message: dict):
         pass
 
     def _create_output(self, response):
         return response
 
-    def get_tool(self, context: Context):
+    def get_tool(self, context: Context) -> Tool:
         pass
 
     def get_tool_param(self):
-        pass
+        return self._tool.params
 
     def validate_require_params(self, user_field):
         require_params = self.get_tool_param()
@@ -75,12 +92,14 @@ class ToolExecutable(Executable):
             }
             self.interrupt(interrupt_message)
 
+
 TYPE_CASTER = {
     "str": str,
     "integer": int,
     "number": float,
     "bool": bool
 }
+
 
 def _transform_type(value, expected_type, key):
     expected_type = expected_type.lower()
@@ -97,7 +116,7 @@ def _transform_type(value, expected_type, key):
     return value
 
 
-def prepare_inputs(user_field, defined_param):
+def prepare_inputs(user_field, defined_param) -> dict:
     define_dict = {}
     formatted_inputs = {}
     for param in defined_param:
@@ -112,6 +131,7 @@ def prepare_inputs(user_field, defined_param):
                 error_code=StatusCode.TOOL_COMPONENT_INPUTS_ERROR.code,
                 message=f'{StatusCode.TOOL_COMPONENT_INPUTS_ERROR.errmsg}, param is {k}'
             )
+    return formatted_inputs
 
 class ToolComponent(WorkflowComponent):
 
