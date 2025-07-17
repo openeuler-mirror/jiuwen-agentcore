@@ -5,11 +5,12 @@ from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
+from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import get_by_schema
+from jiuwen.core.graph.base import ExecutableGraph, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
-
 
 class Vertex:
     def __init__(self, node_id: str, executable: Executable = None):
@@ -21,13 +22,15 @@ class Vertex:
         self._context = context
         return True
 
-    async def __call__(self, state: GraphState) -> Output:
+    async def __call__(self, state: GraphState, config: Any = None) -> Output:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
         inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
         executable_context = self._context.create_executable_context(self._node_id)
+        if isinstance(self._executable, ExecWorkflowComponent) or isinstance(self._executable, ExecutableGraph):
+            inputs = {INPUTS_KEY: inputs, CONFIG_KEY: config}
         try:
             if is_stream:
                 result_iter = await self._executable.stream(inputs, context=executable_context)

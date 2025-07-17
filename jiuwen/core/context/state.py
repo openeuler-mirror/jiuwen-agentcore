@@ -93,7 +93,7 @@ class State(ABC):
         return self._comp_state.get(key)
 
     def set_user_inputs(self, inputs: Any) -> None:
-        if self._io_state is None:
+        if self._io_state is None or inputs is None:
             return
         self._io_state.update("user", {"user": {"inputs": inputs}})
 

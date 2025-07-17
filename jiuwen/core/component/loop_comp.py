@@ -131,8 +131,8 @@ class LoopComponent(WorkflowComponent, LoopController):
         self._compiled = self._graph.compile(self._context)
 
     def init(self):
-        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
-        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
+        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
+        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
         self._condition.init()
 
     def to_executable(self) -> Executable:
@@ -166,10 +166,10 @@ class LoopComponent(WorkflowComponent, LoopController):
         _first_in_loop = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP)
         if isinstance(_first_in_loop, bool):
             if _first_in_loop:
-                self._context.state.update(self._node_id,
+                self._context.state.update(
                                            {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
             return _first_in_loop
-        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
+        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
         return True
 
     def is_broken(self) -> bool:
@@ -179,4 +179,4 @@ class LoopComponent(WorkflowComponent, LoopController):
         return False
 
     def break_loop(self):
-        self._context.state.update(self._node_id, {self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
+        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
