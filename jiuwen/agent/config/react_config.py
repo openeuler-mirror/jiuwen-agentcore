@@ -1,9 +1,9 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 
 from pydantic import BaseModel, Field
 
-from jiuwen.controller.common.enum import ControllerType
-from jiuwen.controller.config.base import AgentConfig
+from jiuwen.agent.common.enum import ControllerType
+from jiuwen.agent.config.base import AgentConfig
 
 
 class ConstrainConfig(BaseModel):

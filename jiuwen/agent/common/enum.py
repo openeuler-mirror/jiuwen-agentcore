@@ -3,7 +3,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 """enum constants"""
 
-from enum import Enum
+from enum import Enum, auto
 
 
 class ControllerType(Enum):
@@ -24,3 +24,11 @@ class ReActStatus(Enum):
     LLM_RESPONSE = "llm_response"
     TOOL_INVOKED = "tool_invoked"
     COMPLETED = "completed"
+
+
+class TaskStatus(Enum):
+    PENDING = auto()  # 已创建，尚未开始
+    RUNNING = auto()  # 正在执行
+    SUCCESS = auto()  # 成功结束
+    FAILED = auto()  # 异常结束
+    CANCELLED = auto()  # 被取消

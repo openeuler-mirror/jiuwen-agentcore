@@ -1,0 +1,2 @@
+class ToolMgr:
+    pass

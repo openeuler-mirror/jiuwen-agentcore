@@ -6,8 +6,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from jiuwen.controller.common.schema import PluginSchema, WorkflowSchema
-from jiuwen.controller.common.enum import ControllerType
+from jiuwen.agent.common.schema import PluginSchema, WorkflowSchema
+from jiuwen.agent.common.enum import ControllerType
 
 
 class AgentConfig(BaseModel):
@@ -17,3 +17,7 @@ class AgentConfig(BaseModel):
     controller_type: ControllerType = Field(default=ControllerType.Undefined)
     plugins: List[PluginSchema] = Field(default_factory=list)
     workflows: List[WorkflowSchema] = Field(default_factory=list)
+
+
+class AgentCard:
+    ...
