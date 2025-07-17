@@ -15,8 +15,9 @@ from jiuwen.core.graph.executable import Executable, Input, Output
 
 class BranchComponent(WorkflowComponent, Executable):
 
-    def __init__(self, context: Context, executable: Executable = None):
-        self._router = BranchRouter(context)
+    def __init__(self, executable: Executable = None):
+        super().__init__()
+        self._router = BranchRouter()
         self._executable = executable
 
     def add_branch(self, condition: Union[str, Callable[[], bool], Condition], target: Union[str, list[str]],
@@ -32,6 +33,7 @@ class BranchComponent(WorkflowComponent, Executable):
         return self
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
+        self._router.set_context(context)
         if self._executable:
             return self._executable.invoke(inputs, context)
         return inputs

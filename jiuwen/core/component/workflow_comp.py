@@ -16,10 +16,10 @@ class ExecWorkflowComponent(WorkflowComponent, Executable):
         self._sub_workflow = sub_workflow
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        return await self._sub_workflow.invoke(inputs.get(INPUTS_KEY), context, inputs.get(CONFIG_KEY))
+        return await self._sub_workflow.sub_invoke(inputs.get(INPUTS_KEY), context, inputs.get(CONFIG_KEY))
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        yield await self.invoke(inputs, context)
+        raise RuntimeError("ExecWorkflowComponent does not have streaming capability")
 
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass

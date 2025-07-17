@@ -10,16 +10,16 @@ from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
-from jiuwen.core.context.config import Transformer, CompIOConfig
-from jiuwen.core.context.context import Context
+from jiuwen.core.component.set_variable_comp import SetVariableComponent
+from jiuwen.core.context.config import WorkflowConfig
+from jiuwen.core.context.context import Context, ContextSetter
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
-from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
+from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Output, Input, Executable
-from jiuwen.graph.factory import GraphFactory
+from jiuwen.core.workflow.base import BaseWorkFlow
 
 
 class EmptyExecutable(Executable):
-
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
@@ -36,62 +36,57 @@ class EmptyExecutable(Executable):
         return
 
 
-class LoopGroup:
-    def __init__(self, context: Context, graph: Graph = None):
-        self._context = context
-        self._graph = graph if graph else GraphFactory().create_graph()
+class LoopGroup(BaseWorkFlow, Executable):
 
-    def add_component(self, node_id: str, component: WorkflowComponent, *, wait_for_all: bool = False,
-                      inputs_schema: dict = None, outputs_schema: dict = None,
-                      inputs_transformer: Transformer = None, outputs_transformer: Transformer = None) -> Self:
-        component.add_component(self._graph, node_id, wait_for_all=wait_for_all)
-        self._context.config.set_comp_io_config(node_id, CompIOConfig(inputs_schema=inputs_schema,
-                                                                      outputs_schema=outputs_schema,
-                                                                      inputs_transformer=inputs_transformer,
-                                                                      outputs_transformer=outputs_transformer))
-        return self
+    def __init__(self, workflow_config: WorkflowConfig, new_graph: Graph):
+        super().__init__(workflow_config, new_graph)
+        self.compiled = None
 
     def start_nodes(self, nodes: list[str]) -> Self:
         for node in nodes:
-            self._graph.start_node(node)
+            self.start_comp(node)
         return self
 
     def end_nodes(self, nodes: list[str]) -> Self:
         for node in nodes:
-            self._graph.end_node(node)
+            self.end_comp(node)
         return self
 
-    def add_connection(self, start_node_id: Union[str, list[str]], end_node_id: str) -> Self:
-        self._graph.add_edge(start_node_id, end_node_id)
-        return self
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        if self.compiled is None:
+            self.compiled = self.compile(context)
+        await self.compiled.invoke(inputs, context)
+        return None
 
-    def add_conditional_connection(self, source: str, router: Router) -> Self:
-        self._graph.add_conditional_edges(source, router)
-        return self
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        yield await self.invoke(inputs, context)
 
-    def compile(self) -> ExecutableGraph:
-        return self._graph.compile(self._context)
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
+        pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
+
+    async def interrupt(self, message: dict):
+        pass
 
 
 BROKEN = "_broken"
 FIRST_IN_LOOP = "_first_in_loop"
 
+CONDITION_NODE_ID = "condition"
+BODY_NODE_ID = "body"
 
-class LoopComponent(WorkflowComponent, LoopController):
 
-    def __init__(self, context: Context, node_id: str, body: Union[Executable, LoopGroup],
+class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable):
+
+    def __init__(self, node_id: str, body: Executable, new_graph: Graph,
                  condition: Union[str, Callable[[], bool], Condition] = None, context_root: str = None,
-                 break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None, graph: Graph = None):
-        super().__init__()
+                 break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None,
+                 set_variable_components: list[SetVariableComponent] = None):
+        ContextSetter.__init__(self)
         self._node_id = node_id
-        if context is None:
-            raise ValueError("context cannot be None")
-        if context_root is None:
-            context_root = node_id
-
-        self._context = context.create_executable_context(self._node_id)
-        self._callbacks: list[LoopCallback] = []
-        self._context_root = context_root
+        self._body = body
 
         self._condition: Condition
         if condition is None:
@@ -101,32 +96,32 @@ class LoopComponent(WorkflowComponent, LoopController):
         elif isinstance(condition, Callable):
             self._condition = FuncCondition(condition)
         elif isinstance(condition, str):
-            self._condition = ExpressionCondition(context, condition)
+            self._condition = ExpressionCondition(condition)
+
+        if context_root is None:
+            context_root = node_id
+        self._context_root = context_root
 
         if break_nodes:
             for break_node in break_nodes:
                 break_node.set_controller(self)
 
+        self._callbacks: list[LoopCallback] = []
+
         if callbacks:
             for callback in callbacks:
                 self.register_callback(callback)
 
-        condition_node_id = "condition"
-        body_node_id = "body"
-        self._in_loop = [body_node_id]
-        self._out_loop = [END]
+        self._graph = new_graph
+        self._graph.add_node(BODY_NODE_ID, self._body)
+        self._graph.add_node(CONDITION_NODE_ID, EmptyExecutable())
+        self._graph.add_edge(START, CONDITION_NODE_ID)
+        self._graph.add_edge(BODY_NODE_ID, CONDITION_NODE_ID)
+        self._graph.add_conditional_edges(CONDITION_NODE_ID, self)
 
-        self._graph = graph if graph else GraphFactory().create_graph()
-        if isinstance(body, LoopGroup):
-            body = body.compile()
-        self._graph.add_node(body_node_id, body)
-        self._graph.add_node(condition_node_id, EmptyExecutable())
-        self._graph.add_edge(START, condition_node_id)
-        self._graph.add_edge(body_node_id, condition_node_id)
-        self._graph.add_conditional_edges(condition_node_id, self)
-
-        self.init()
-        self._compiled = self._graph.compile(self._context)
+        self._context_setters: list[ContextSetter] = [self, self._condition]
+        self._context_setters.extend(self._callbacks)
+        self._context_setters.extend(set_variable_components)
 
     def init(self):
         self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
@@ -134,40 +129,45 @@ class LoopComponent(WorkflowComponent, LoopController):
         self._condition.init()
 
     def to_executable(self) -> Executable:
-        return self._compiled
+        return self
 
     def register_callback(self, callback: LoopCallback):
         self._callbacks.append(callback)
 
     def __call__(self, *args, **kwargs) -> list[str]:
-        continue_loop = False if self.is_broken() else self._condition()
+        in_loop = [BODY_NODE_ID]
+        out_loop = [END]
+
         first_in_loop = self.first_in_loop()
+        if first_in_loop:
+            self._condition.init()
+        continue_loop = False if self.is_broken() else self._condition()
 
         for callback in self._callbacks:
-            if not first_in_loop:
+            if first_in_loop:
+                callback.first_in_loop()
+            else:
                 callback.end_round()
             if continue_loop:
-                if first_in_loop:
-                    callback.first_in_loop()
                 callback.start_round()
             else:
                 callback.out_loop()
 
-        self._context.state.commit()
         if continue_loop:
-            return self._in_loop
+            return in_loop
 
         self.init()
-        return self._out_loop
+        return out_loop
 
     def first_in_loop(self) -> bool:
         _first_in_loop = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP)
-        if isinstance(_first_in_loop, bool):
-            if _first_in_loop:
-                self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
-            return _first_in_loop
-        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
-        return True
+        if _first_in_loop is None:
+            _first_in_loop = True
+
+        if _first_in_loop:
+            self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
+            self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
+        return _first_in_loop
 
     def is_broken(self) -> bool:
         _is_broken = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + BROKEN)
@@ -177,3 +177,25 @@ class LoopComponent(WorkflowComponent, LoopController):
 
     def break_loop(self):
         self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
+
+    async def invoke(self, inputs: Input, context: Context) -> Output:
+        for context_setter in self._context_setters:
+            context_setter.set_context(context)
+
+        compiled = self._graph.compile(self._context)
+        if isinstance(self._body, LoopGroup):
+            self._body.compiled = self._body.compile(context)
+        await compiled.invoke(inputs, context)
+        return None
+
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        yield await self.invoke(inputs, context)
+
+    async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
+        pass
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        pass
+
+    async def interrupt(self, message: dict):
+        pass

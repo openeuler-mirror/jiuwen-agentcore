@@ -86,3 +86,11 @@ class ExecutableContext(Context):
     @property
     def parent_id(self):
         return self._parent_id
+
+
+class ContextSetter(ABC):
+    def __init__(self, context: Context = None):
+        self._context = context
+
+    def set_context(self, context: Context):
+        self._context = context

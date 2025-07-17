@@ -8,8 +8,8 @@ from jiuwen.core.context.context import Context
 
 
 class ExpressionCondition(Condition):
-    def __init__(self, context: Context, expression: str):
-        self._context = context
+    def __init__(self, expression: str):
+        super().__init__()
         self._expression = expression
 
     def init(self):

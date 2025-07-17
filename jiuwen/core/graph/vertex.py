@@ -5,12 +5,16 @@ from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
+from jiuwen.core.component.loop_comp import LoopComponent, LoopGroup
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.context.context import Context, ExecutableContext
 from jiuwen.core.context.utils import get_by_schema
 from jiuwen.core.graph.base import ExecutableGraph, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
+
+
+WORKFLOW_COMPONENTS = [LoopComponent, LoopGroup, ExecWorkflowComponent, ExecutableGraph]
 
 
 class Vertex:
@@ -29,7 +33,7 @@ class Vertex:
         inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._context.executable_id, inputs)
         is_stream = self.__is_stream__(state)
-        if isinstance(self._executable, ExecWorkflowComponent) or isinstance(self._executable, ExecutableGraph):
+        if type(self._executable) in WORKFLOW_COMPONENTS:
             inputs = {INPUTS_KEY: inputs, CONFIG_KEY: config}
 
         try:
