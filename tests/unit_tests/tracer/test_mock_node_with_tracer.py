@@ -18,7 +18,7 @@ class StreamNodeWithTracer(MockNodeBase):
         trace_workflow_span = context.tracer.tracer_workflow_span_manager().last_span
         await context.tracer.trigger("tracer_workflow", "on_invoke", span=trace_workflow_span,
                                      on_invoke_data={"on_invoke_data": "mock with" + str(inputs)})
-        context.state.update_trace(trace_workflow_span.invoke_id, trace_workflow_span)
+        context.state.update_trace(trace_workflow_span)
         await asyncio.sleep(5)
         for data in self._datas:
             await asyncio.sleep(1)

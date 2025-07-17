@@ -6,7 +6,7 @@ from typing import Any, Optional
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
-from jiuwen.core.context.context import Context
+from jiuwen.core.context.context import Context, ExecutableContext
 from jiuwen.core.context.utils import get_by_schema
 from jiuwen.core.graph.base import ExecutableGraph, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Output
@@ -16,27 +16,27 @@ class Vertex:
     def __init__(self, node_id: str, executable: Executable = None):
         self._node_id = node_id
         self._executable = executable
-        self._context: Context = None
+        self._context: ExecutableContext = None
 
     def init(self, context: Context) -> bool:
-        self._context = context
+        self._context = context.create_executable_context(self._node_id)
         return True
 
     async def __call__(self, state: GraphState, config: Any = None) -> Output:
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
         inputs = await self.__pre_invoke__()
-        logger.info("vertex[%s] inputs %s", self._node_id, inputs)
+        logger.info("vertex[%s] inputs %s", self._context.executable_id, inputs)
         is_stream = self.__is_stream__(state)
-        executable_context = self._context.create_executable_context(self._node_id)
         if isinstance(self._executable, ExecWorkflowComponent) or isinstance(self._executable, ExecutableGraph):
             inputs = {INPUTS_KEY: inputs, CONFIG_KEY: config}
+
         try:
             if is_stream:
-                result_iter = await self._executable.stream(inputs, context=executable_context)
+                result_iter = await self._executable.stream(inputs, context=self._context)
                 self.__post_stream__(result_iter)
             else:
-                results = await self._executable.invoke(inputs, context=executable_context)
+                results = await self._executable.invoke(inputs, context=self._context)
                 await self.__post_invoke__(results)
         except JiuWenBaseException as e:
             raise JiuWenBaseException(e.error_code, "failed to invoke, caused by " + e.message)
@@ -60,7 +60,7 @@ class Vertex:
             results = get_by_schema(output_schema, results) if output_schema else results
         else:
             results = output_transformer(results)
-        logger.info("vertex[%s] outputs %s", self._node_id, results)
+        logger.info("vertex[%s] outputs %s", self._context.executable_id, results)
         self._context.state.set_outputs(self._node_id, results)
         # todo: need move to checkpoint
         self._context.state.commit()
@@ -87,13 +87,13 @@ class Vertex:
         tracer_workflow_span = trace_workflow_span_manager.create_workflow_span(trace_workflow_span_manager.last_span)
         await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", span=tracer_workflow_span, inputs=inputs,
                                            component_metadata={"component_type": "component_type"})
-        self._context.state.update_trace(tracer_workflow_span.invoke_id, tracer_workflow_span)
+        self._context.state.update_trace(tracer_workflow_span)
 
     async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
         trace_workflow_span = self._context.tracer.tracer_workflow_span_manager().last_span
         await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", span=trace_workflow_span,
                                            outputs=outputs)
-        self._context.state.update_trace(trace_workflow_span.invoke_id, trace_workflow_span)
+        self._context.state.update_trace(trace_workflow_span)
 
     def __is_stream__(self, state: GraphState) -> bool:
         return False

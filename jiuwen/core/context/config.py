@@ -6,11 +6,9 @@ from typing import TypedDict, Any, Optional
 
 from jiuwen.core.context.state import Transformer
 
-
 class MetadataLike(TypedDict):
     name: str
     event: str
-
 
 class CompIOConfig(ABC):
     def __init__(self, inputs_schema: dict = None,
@@ -22,6 +20,9 @@ class CompIOConfig(ABC):
         self.inputs_transformer = inputs_transformer
         self.outputs_transformer = outputs_transformer
 
+class WorkflowConfig:
+    comp_configs: dict[str, CompIOConfig] = {}
+    stream_edges: dict[str, list[str]] = {}
 
 class Config(ABC):
     """
@@ -34,15 +35,11 @@ class Config(ABC):
         """
         self._callback_metadata: dict[str, MetadataLike] = {}
         self._env: dict = {}
-        self._stream_edges: dict[str, list[str]] = {}
-        self._comp_io_configs: dict[str, CompIOConfig] = {}
+        self._workflow_config: WorkflowConfig = WorkflowConfig()
         self.__load_envs__()
 
-    def init(self, comp_configs: dict[str, CompIOConfig], stream_edges: dict[str, list[str]] = None,
-             end_node_id: str = None) -> bool:
-        self.set_stream_edges(stream_edges)
-        self._comp_io_configs.update(comp_configs)
-        return True
+    def set_workflow_config(self, workflow_config: WorkflowConfig) -> None:
+        self._workflow_config = workflow_config
 
     def set_comp_io_config(self, node_id: str, comp_io_config: CompIOConfig) -> None:
         """
@@ -50,7 +47,7 @@ class Config(ABC):
         :param node_id: node id
         :param comp_io_config: component io config
         """
-        self._comp_io_configs[node_id] = comp_io_config
+        self._workflow_config.comp_configs[node_id] = comp_io_config
 
     def get_inputs_schema(self, node_id: str) -> dict:
         """
@@ -58,10 +55,10 @@ class Config(ABC):
         :param node_id: node id
         :return: inputs schema
         """
-        if node_id not in self._comp_io_configs:
+        if node_id not in self._workflow_config.comp_configs:
             return {}
         else:
-            return self._comp_io_configs[node_id].inputs_schema
+            return self._workflow_config.comp_configs[node_id].inputs_schema
 
     def get_outputs_schema(self, node_id: str) -> dict:
         """
@@ -69,10 +66,10 @@ class Config(ABC):
         :param node_id: node id
         :return: outputs schema
         """
-        if node_id not in self._comp_io_configs:
+        if node_id not in self._workflow_config.comp_configs:
             return {}
         else:
-            return self._comp_io_configs[node_id].outputs_schema
+            return self._workflow_config.comp_configs[node_id].outputs_schema
 
     def get_input_transformer(self, node_id: str) -> Optional[Transformer]:
         """
@@ -80,10 +77,10 @@ class Config(ABC):
         :param node_id: node id
         :return: transformer
         """
-        if node_id not in self._comp_io_configs:
+        if node_id not in self._workflow_config.comp_configs:
             return None
         else:
-            return self._comp_io_configs[node_id].inputs_transformer
+            return self._workflow_config.comp_configs[node_id].inputs_transformer
 
     def get_output_transformer(self, node_id: str) -> Optional[Transformer]:
         """
@@ -91,10 +88,10 @@ class Config(ABC):
         :param node_id: node id
         :return: transformer
         """
-        if node_id not in self._comp_io_configs:
+        if node_id not in self._workflow_config.comp_configs:
             return None
         else:
-            return self._comp_io_configs[node_id].outputs_transformer
+            return self._workflow_config.comp_configs[node_id].outputs_transformer
 
     def set_stream_edge(self, source_node_id: str, target_node_id: str) -> None:
         """
@@ -102,14 +99,14 @@ class Config(ABC):
         :param source_node_id: source node id
         :param target_node_id: target node id
         """
-        self._stream_edges[source_node_id].append(target_node_id)
+        self._workflow_config.stream_edges[source_node_id].append(target_node_id)
 
     def set_stream_edges(self, edges: dict[str, list[str]]) -> None:
         """
         set stream edges
         :param edges: stream edges
         """
-        self._stream_edges.update(edges)
+        self._workflow_config.stream_edges.update(edges)
 
     def is_stream_edge(self, source_node_id: str, target_node_id: str) -> bool:
         """
@@ -118,7 +115,7 @@ class Config(ABC):
         :param target_node_id: target node id
         :return: true if is stream edge
         """
-        return (target_node_id in source_node_id) and (source_node_id in self._stream_edges[target_node_id])
+        return (target_node_id in source_node_id) and (source_node_id in self._workflow_config.stream_edges[target_node_id])
 
     def set_envs(self, envs: dict[str, str]) -> None:
         """

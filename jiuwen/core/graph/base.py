@@ -2,7 +2,7 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 from abc import ABC, abstractmethod
-from typing import Self, Union, Any, AsyncIterator, Iterator, Hashable, Callable, Awaitable
+from typing import Self, Union, Any, AsyncIterator, Hashable, Callable, Awaitable
 
 from langchain_core.runnables import Runnable
 
@@ -15,8 +15,8 @@ CONFIG_KEY = "config"
 class ExecutableGraph(Executable[Input, Output]):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         context.state.set_user_inputs(inputs.get(INPUTS_KEY))
-        context.state.commit()
-        return await self._invoke(inputs.get(CONFIG_KEY))
+        results = await self._invoke(inputs.get(CONFIG_KEY))
+        return results
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         pass

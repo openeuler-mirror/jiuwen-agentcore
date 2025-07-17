@@ -95,7 +95,9 @@ class State(ABC):
     def set_user_inputs(self, inputs: Any) -> None:
         if self._io_state is None or inputs is None:
             return
-        self._io_state.update("user", {"user": {"inputs": inputs}})
+        self._io_state.update("", inputs)
+        self._global_state.update("", inputs)
+        self.commit()
 
     def get_inputs_by_transformer(self, transformer: Callable) -> dict:
         if self._io_state is None:
@@ -113,8 +115,6 @@ class State(ABC):
         return self._io_state.update(node_id, {node_id: outputs})
 
     def create_executable_state(self, node_id: str) -> Self:
-        if self._node_id is not None:
-            node_id = self._node_id + "." + node_id
         return State(io_state=self._io_state, global_state=self._global_state, comp_state=self._comp_state,
                      trace_state=self._trace_state, node_id=node_id)
 

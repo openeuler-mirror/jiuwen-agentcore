@@ -104,8 +104,7 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
         self._sub_workflow = sub_workflow
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        sub_context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
-        async for chunk in self._sub_workflow.stream({"a": 1, "b": "haha"}, sub_context):
+        async for chunk in self._sub_workflow.stream({"a": 1, "b": "haha"}, context):
             logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], stream frame: {chunk}")
             await context.stream_writer_manager.get_custom_writer().write(chunk)
         logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], batch output: {inputs}")

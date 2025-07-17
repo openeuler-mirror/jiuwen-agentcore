@@ -3,7 +3,9 @@ import unittest
 from collections.abc import Callable
 
 from jiuwen.core.common.logging.base import logger
+from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.context.state import ReadableStateLike
+from jiuwen.core.stream.base import BaseStreamMode
 from test_mock_node import SlowNode, CountNode, StreamNodeWithSubWorkflow, CompositeWorkflowNode
 
 from jiuwen.core.component.branch_comp import BranchComponent
@@ -27,7 +29,7 @@ from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode,
 
 
 def create_context() -> Context:
-    return Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
+    return Context(config=Config(), state=InMemoryState(), store=None)
 
 
 def create_graph() -> Graph:
@@ -38,7 +40,7 @@ def create_flow() -> Workflow:
     return Workflow(workflow_config=DEFAULT_WORKFLOW_CONFIG, graph=create_graph())
 
 
-DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
+DEFAULT_WORKFLOW_CONFIG = WorkflowConfig()
 
 
 class WorkflowTest(unittest.TestCase):
@@ -63,8 +65,8 @@ class WorkflowTest(unittest.TestCase):
         flow = create_flow()
         flow.set_start_comp("start", MockStartNode("start"),
                             inputs_schema={
-                                "a": "${user.inputs.a}",
-                                "b": "${user.inputs.b}",
+                                "a": "${a}",
+                                "b": "${b}",
                                 "c": 1,
                                 "d": [1, 2, 3]})
         flow.add_workflow_comp("a", Node1("a"),
@@ -81,8 +83,8 @@ class WorkflowTest(unittest.TestCase):
         flow2 = create_flow()
         flow2.set_start_comp("start", MockStartNode("start"),
                              inputs_schema={
-                                 "a1": "${user.inputs.a1}",
-                                 "a2": "${user.inputs.a2}"})
+                                 "a1": "${a1}",
+                                 "a2": "${a2}"})
 
         # flow2: start->a1|a2->end
         flow2.add_workflow_comp("a1", Node1("a1"), inputs_schema={"value": "${start.a1}"})
@@ -101,8 +103,8 @@ class WorkflowTest(unittest.TestCase):
         """
         flow = create_flow()
         flow.set_start_comp("start", MockStartNode("start"),
-                            inputs_schema={"a": "${user.inputs.a}",
-                                           "b": "${user.inputs.b}",
+                            inputs_schema={"a": "${a}",
+                                           "b": "${b}",
                                            "c": 1,
                                            "d": [1, 2, 3]})
         choose = "a"
@@ -128,8 +130,8 @@ class WorkflowTest(unittest.TestCase):
             flow = create_flow()
 
             def start_input_transformer(state: ReadableStateLike):
-                start_input_schema = {"a": "${user.inputs.a}", "b": "${user.inputs.b}", "c": "${user.inputs.c}",
-                                      "d": "${user.inputs.d}"}
+                start_input_schema = {"a": "${a}", "b": "${b}", "c": "${c}",
+                                      "d": "${d}"}
                 return state.get(start_input_schema)
 
             flow.set_start_comp("start", MockStartNode("start"), inputs_transformer=start_input_transformer)
@@ -165,16 +167,16 @@ class WorkflowTest(unittest.TestCase):
                           inputs_schema={"a": "${a.result}", "b": "${b.result}"})
 
         sw = BranchComponent(context)
-        sw.add_branch("${user.inputs.a} <= 10", ["b"], "1")
-        sw.add_branch("${user.inputs.a} > 10", ["a"], "2")
+        sw.add_branch("${a} <= 10", ["b"], "1")
+        sw.add_branch("${a} > 10", ["a"], "2")
 
         flow.add_workflow_comp("sw", sw)
 
         flow.add_workflow_comp("a", CommonNode("a"),
-                               inputs_schema={"result": "${user.inputs.a}"})
+                               inputs_schema={"result": "${a}"})
 
         flow.add_workflow_comp("b", AddTenNode("b"),
-                               inputs_schema={"source": "${user.inputs.a}"})
+                               inputs_schema={"source": "${a}"})
 
         flow.add_connection("start", "sw")
         flow.add_connection("a", "end")
@@ -192,7 +194,7 @@ class WorkflowTest(unittest.TestCase):
         flow.set_end_comp("e", MockEndNode("e"),
                           inputs_schema={"array_result": "${b.array_result}", "user_var": "${b.user_var}"})
         flow.add_workflow_comp("a", CommonNode("a"),
-                               inputs_schema={"array": "${user.inputs.input_array}"})
+                               inputs_schema={"array": "${input_array}"})
         flow.add_workflow_comp("b", CommonNode("b"),
                                inputs_schema={"array_result": "${l.results}", "user_var": "${l.user_var}"})
 
@@ -210,7 +212,7 @@ class WorkflowTest(unittest.TestCase):
         output_callback = OutputCallback(context, "l",
                                          {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
         intermediate_callback = IntermediateLoopVarCallback(context, "l",
-                                                            {"user_var": "${user.inputs.input_number}"})
+                                                            {"user_var": "${input_number}"})
 
         loop = LoopComponent(context, "l", loop_group, ArrayCondition(context, "l", {"item": "${a.array}"}),
                              callbacks=[output_callback, intermediate_callback])
@@ -235,7 +237,7 @@ class WorkflowTest(unittest.TestCase):
         flow.set_end_comp("e", MockEndNode("e"),
                           inputs_schema={"array_result": "${b.array_result}", "user_var": "${b.user_var}"})
         flow.add_workflow_comp("a", CommonNode("a"),
-                               inputs_schema={"array": "${user.inputs.input_array}"})
+                               inputs_schema={"array": "${input_array}"})
         flow.add_workflow_comp("b", CommonNode("b"),
                                inputs_schema={"array_result": "${l.results}", "user_var": "${l.user_var}"})
 
@@ -256,7 +258,7 @@ class WorkflowTest(unittest.TestCase):
         output_callback = OutputCallback(context, "l",
                                          {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
         intermediate_callback = IntermediateLoopVarCallback(context, "l",
-                                                            {"user_var": "${user.inputs.input_number}"})
+                                                            {"user_var": "${input_number}"})
 
         loop = LoopComponent(context, "l", loop_group, ArrayCondition(context, "l", {"item": "${a.array}"}),
                              callbacks=[output_callback, intermediate_callback], break_nodes=[break_node])
@@ -298,9 +300,9 @@ class WorkflowTest(unittest.TestCase):
         output_callback = OutputCallback(context, "l",
                                          {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
         intermediate_callback = IntermediateLoopVarCallback(context, "l",
-                                                            {"user_var": "${user.inputs.input_number}"})
+                                                            {"user_var": "${input_number}"})
 
-        loop = LoopComponent(context, "l", loop_group, NumberCondition(context, "l", "${user.inputs.loop_number}"),
+        loop = LoopComponent(context, "l", loop_group, NumberCondition(context, "l", "${loop_number}"),
                              callbacks=[output_callback, intermediate_callback])
 
         flow.add_workflow_comp("l", loop)
@@ -322,8 +324,8 @@ class WorkflowTest(unittest.TestCase):
             flow = create_flow()
             flow.set_start_comp("start", MockStartNode("start"),
                                 inputs_schema={
-                                    "a": "${user.inputs.a}",
-                                    "b": "${user.inputs.b}",
+                                    "a": "${a}",
+                                    "b": "${b}",
                                     "c": 1,
                                     "d": [1, 2, 3]})
             expected_datas = [
@@ -344,6 +346,8 @@ class WorkflowTest(unittest.TestCase):
 
             index = 0
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                if not isinstance(chunk, CustomSchema):
+                    continue
                 assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
                 logger.info(f"stream chunk: {chunk}")
                 index += 1
@@ -355,8 +359,8 @@ class WorkflowTest(unittest.TestCase):
             flow = create_flow()
             flow.set_start_comp("start", MockStartNode("start"),
                                 inputs_schema={
-                                    "a": "${user.inputs.a}",
-                                    "b": "${user.inputs.b}",
+                                    "a": "${a}",
+                                    "b": "${b}",
                                     "c": 1,
                                     "d": [1, 2, 3]})
 
@@ -394,6 +398,8 @@ class WorkflowTest(unittest.TestCase):
             }
             index_dict = {key: 0 for key in expected_datas_model.keys()}
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                if not isinstance(chunk, CustomSchema):
+                    continue
                 node_id = chunk.node_id
                 index = index_dict[node_id]
                 assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
@@ -407,8 +413,8 @@ class WorkflowTest(unittest.TestCase):
             flow = create_flow()
             flow.set_start_comp("start", MockStartNode("start"),
                                 inputs_schema={
-                                    "a": "${user.inputs.a}",
-                                    "b": "${user.inputs.b}",
+                                    "a": "${a}",
+                                    "b": "${b}",
                                     "c": 1,
                                     "d": [1, 2, 3]})
 
@@ -447,6 +453,8 @@ class WorkflowTest(unittest.TestCase):
             }
             index_dict = {key: 0 for key in expected_datas_model.keys()}
             async for chunk in flow.stream({"a": 1, "b": "haha"}, create_context()):
+                if not isinstance(chunk, CustomSchema):
+                    continue
                 node_id = chunk.node_id
                 index = index_dict[node_id]
                 assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
@@ -461,8 +469,8 @@ class WorkflowTest(unittest.TestCase):
             sub_workflow = create_flow()
             sub_workflow.set_start_comp("sub_start", MockStartNode("start"),
                                         inputs_schema={
-                                            "a": "${user.inputs.a}",
-                                            "b": "${user.inputs.b}",
+                                            "a": "${a}",
+                                            "b": "${b}",
                                             "c": 1,
                                             "d": [1, 2, 3]})
             expected_datas = [
@@ -485,12 +493,12 @@ class WorkflowTest(unittest.TestCase):
             main_workflow = create_flow()
             main_workflow.set_start_comp("start", MockStartNode("start"),
                                          inputs_schema={
-                                             "a": "${user.inputs.a}",
-                                             "b": "${user.inputs.b}",
+                                             "a": "${a}",
+                                             "b": "${b}",
                                              "c": 1,
                                              "d": [1, 2, 3]})
 
-            main_workflow.add_workflow_comp("a", StreamNodeWithSubWorkflow("a", sub_workflow),
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -501,7 +509,7 @@ class WorkflowTest(unittest.TestCase):
             main_workflow.add_connection("a", "end")
 
             index = 0
-            async for chunk in main_workflow.stream({"a": 1, "b": "haha"}, create_context()):
+            async for chunk in main_workflow.stream({"a": 1, "b": "haha"}, create_context(), stream_modes=[BaseStreamMode.CUSTOM]):
                 assert chunk == expected_datas_model[index], f"Mismatch at index {index}"
                 logger.info(f"stream chunk: {chunk}")
                 index += 1
@@ -512,12 +520,12 @@ class WorkflowTest(unittest.TestCase):
         flow1 = create_flow()
         flow1.set_start_comp("start", MockStartNode("start"),
                              inputs_schema={
-                                 "a1": "${user.inputs.a1}",
-                                 "a2": "${user.inputs.a2}"})
+                                 "a1": "${a1}",
+                                 "a2": "${a2}"})
 
         # start2->a2->end2
         flow2 = create_flow()
-        flow2.set_start_comp("start2", MockStartNode("start2"), inputs_schema={"a1": "${user.inputs.result}"})
+        flow2.set_start_comp("start2", MockStartNode("start2"), inputs_schema={"a1": "${result}"})
         flow2.add_workflow_comp("a2", Node1("a2"), inputs_schema={"value": "${start2.a1}"})
         flow2.set_end_comp("end2", MockEndNode("end2"), inputs_schema={"result": "${a2.value}"})
         flow2.add_connection("start2", "a2")
@@ -534,5 +542,3 @@ class WorkflowTest(unittest.TestCase):
         flow1.add_connection("a1", "end")
         flow1.add_connection("composite", "end")
         self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": 2})
-
-

@@ -29,14 +29,15 @@ class StreamWriterManager:
     def stream_emitter(self) -> StreamEmitter:
         return self._stream_emitter
 
-    async def stream_output(self, timeout=0.2) -> AsyncIterator[Any]:
+    async def stream_output(self, timeout=0.2, need_close: bool = True) -> AsyncIterator[Any]:
         while True:
             data = await self._stream_emitter.stream_queue.receive(
                 timeout=timeout)
             if data is not None:
                 if data == StreamEmitter.END_FRAME:
                     logger.info("Received END_FRAME, stopping stream output.")
-                    await self._stream_emitter.stream_queue.close()
+                    if need_close:
+                        await self._stream_emitter.stream_queue.close()
                     break
                 else:
                     logger.info(f"Received stream data: {data}")
