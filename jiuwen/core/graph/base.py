@@ -9,12 +9,14 @@ from langchain_core.runnables import Runnable
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Output, Input
 
+INPUTS_KEY = "inputs"
+CONFIG_KEY = "config"
 
 class ExecutableGraph(Executable[Input, Output]):
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        context.state.set_user_inputs(inputs)
+        context.state.set_user_inputs(inputs.get(INPUTS_KEY))
         context.state.commit()
-        return await self._invoke()
+        return await self._invoke(inputs.get(CONFIG_KEY))
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         pass
@@ -29,7 +31,7 @@ class ExecutableGraph(Executable[Input, Output]):
         pass
 
     @abstractmethod
-    async def _invoke(self) -> Output:
+    async def _invoke(self, config: Any = None) -> Output:
        pass
 
 

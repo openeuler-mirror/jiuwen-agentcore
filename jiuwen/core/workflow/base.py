@@ -11,7 +11,7 @@ from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
 from jiuwen.core.context.config import CompIOConfig, Transformer
 from jiuwen.core.context.context import Context
-from jiuwen.core.graph.base import Graph, Router
+from jiuwen.core.graph.base import Graph, Router, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.stream.base import StreamMode
 
@@ -108,13 +108,13 @@ class Workflow:
         self._graph.add_conditional_edges(source_node_id=src_comp_id, router=router)
         return self
 
-    async def invoke(self, inputs: Input, context: Context) -> Output:
+    async def invoke(self, inputs: Input, context: Context, config: Any = None) -> Output:
         if not context.init(comp_configs=self._comp_io_configs, stream_edges=self._stream_edges,
                             workflow_config=self._workflow_config):
             return None
         logger.info("begin to invoke, input=%s", inputs)
         compiled_graph = self._graph.compile(context)
-        await compiled_graph.invoke(inputs, context)
+        await compiled_graph.invoke({INPUTS_KEY: inputs, CONFIG_KEY: config}, context)
         results = context.state.get_outputs(self._end_comp_id)
         logger.info("end to invoke, results=%s", results)
         return results
