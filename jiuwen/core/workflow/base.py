@@ -35,6 +35,9 @@ class Workflow:
         self._workflow_config = workflow_config
         self._end_comp_id: str = ""
 
+    def config(self):
+        return self._workflow_config
+
     def add_workflow_comp(
             self,
             comp_id: str,

@@ -7,8 +7,16 @@ from email.policy import default
 from enum import Enum
 from typing import Optional
 
+from pydantic import BaseModel, Field
+
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Executable
+
+
+class WorkflowMetadata(BaseModel):
+    name: str = Field(default="")
+    id: str = Field(default="")
+    version: str = Field(default="")
 
 
 @dataclass

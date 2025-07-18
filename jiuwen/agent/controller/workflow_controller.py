@@ -5,6 +5,7 @@ from pydantic import Field
 from jiuwen.agent.config.base import AgentConfig
 from jiuwen.agent.controller.base import Controller, ControllerOutput, ControllerInput
 from jiuwen.core.agent.task.task import SubTask
+from jiuwen.core.context.context import Context
 
 
 class WorkflowControllerOutput(ControllerOutput):
@@ -23,5 +24,5 @@ class WorkflowController(Controller):
     def __init__(self, config: AgentConfig, context_mgr):
         super().__init__(config, context_mgr)
 
-    def invoke(self, inputs: WorkflowControllerInput) -> WorkflowControllerOutput:
+    def invoke(self, inputs: WorkflowControllerInput, context: Context) -> WorkflowControllerOutput:
         return WorkflowControllerOutput()

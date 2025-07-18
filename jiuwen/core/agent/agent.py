@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Any, Iterator, Optional, Dict
+from typing import Any, Iterator, Optional, Dict, List
 
 from jiuwen.agent.config.base import AgentConfig
 from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.context.context import Context
+from jiuwen.core.workflow.base import Workflow
 
 
 class Agent(ABC):
@@ -22,17 +24,23 @@ class Agent(ABC):
         self._task_manager: "TaskManager | None" = self._init_task_manager()
 
     @abstractmethod
-    def invoke(self, inputs: Dict) -> Dict:
+    def invoke(self, inputs: Dict, context: Context) -> Dict:
         """
         同步调用，一次性返回最终结果
         """
         pass
 
     @abstractmethod
-    def stream(self, inputs: Dict) -> Iterator[Any]:
+    def stream(self, inputs: Dict, context: Context) -> Iterator[Any]:
         """
         流式调用，逐个 yield 中间结果
         """
+        pass
+
+    def register_workflows(self, workflows: List[Workflow]):
+        self._controller_context_manager.workflow_mgr.add_workflows(workflows)
+
+    def register_tools(self, tools):
         pass
 
     def _init_controller(self) -> "Controller | None":

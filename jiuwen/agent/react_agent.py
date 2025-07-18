@@ -2,7 +2,7 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 """ReActAgent"""
-from typing import Dict, Iterator, Any
+from typing import Dict, Iterator, Any, List
 
 from jiuwen.agent.config.react_config import ReActAgentConfig
 from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
@@ -13,6 +13,22 @@ from jiuwen.agent.state.react_state import ReActState
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.utils.tool.base import Tool
+from jiuwen.core.workflow.base import Workflow
+
+
+def create_react_agent_config():
+    config = ReActAgentConfig()
+    return config
+
+
+def create_react_agent(agent_config: ReActAgentConfig,
+                       workflows: List[Workflow] = None,
+                       tools: List[Tool] = None):
+    agent = ReActAgent(agent_config)
+    agent.register_workflows(workflows)
+    agent.register_tools(tools)
+    return agent
 
 
 class ReActAgent(Agent):
@@ -27,10 +43,9 @@ class ReActAgent(Agent):
         return AgentHandlerImpl()
 
     def _init_controller_context_manager(self) -> ControllerContextMgr:
-        context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
-        return ControllerContextMgr(self._config, context)
+        return ControllerContextMgr(self._config)
 
-    def invoke(self, inputs: Dict) -> Dict:
+    def invoke(self, inputs: Dict, context: Context) -> Dict:
         while self._state.current_iteration < self._config.constrain.max_iteration:
             controller_output: ReActControllerOutput = self._controller.invoke(inputs)
             if not controller_output.should_continue:
@@ -41,7 +56,7 @@ class ReActAgent(Agent):
 
         return dict(output=self._state.final_result)
 
-    def stream(self, inputs: Dict) -> Iterator[Any]:
+    def stream(self, inputs: Dict, context: Context) -> Iterator[Any]:
         pass
 
     def _execute_sub_tasks(self, sub_tasks):
