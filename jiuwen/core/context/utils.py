@@ -146,6 +146,8 @@ def root_to_path(nested_path: str, source: dict, create_if_absent: bool = False)
         return (nested_path, source)
     current = source
     for i in range(len(paths)):
+        if not isinstance(current, dict):
+            return (None, None)
         path = paths[i]
         if isinstance(path, str):
             if path not in current:
@@ -154,6 +156,8 @@ def root_to_path(nested_path: str, source: dict, create_if_absent: bool = False)
                 current[path] = {}
             if i == len(paths) - 1:
                 return (path, current)
+            elif not isinstance(current[path], dict) and create_if_absent:
+                current[path] = {}
             current = current[path]
         else:
             token = path[0]

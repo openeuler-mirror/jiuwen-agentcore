@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
-import asyncio
-from functools import partial
 from typing import Iterator, AsyncIterator, Self, Union, Callable
 
 from langgraph.constants import END, START
@@ -91,7 +89,7 @@ class LoopComponent(WorkflowComponent, LoopController):
         if context_root is None:
             context_root = node_id
 
-        self._context = context
+        self._context = context.create_executable_context(self._node_id)
         self._callbacks: list[LoopCallback] = []
         self._context_root = context_root
 
@@ -166,8 +164,7 @@ class LoopComponent(WorkflowComponent, LoopController):
         _first_in_loop = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP)
         if isinstance(_first_in_loop, bool):
             if _first_in_loop:
-                self._context.state.update(
-                                           {self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
+                self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
             return _first_in_loop
         self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
         return True

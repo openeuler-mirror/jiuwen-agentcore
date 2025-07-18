@@ -32,7 +32,7 @@ from jiuwen.core.stream.writer import TraceSchema
 
 def create_context_with_tracer() -> Context:
     tracer = Tracer()
-    return Context(config=Config(), state=InMemoryState(), store=None, tracer=tracer)
+    return Context(config=Config(), state=InMemoryState(), store=None)
 
 
 def create_graph() -> Graph:
@@ -43,7 +43,7 @@ def create_flow() -> Workflow:
     return Workflow(workflow_config=DEFAULT_WORKFLOW_CONFIG, graph=create_graph())
 
 
-DEFAULT_WORKFLOW_CONFIG = WorkflowConfig(metadata={})
+DEFAULT_WORKFLOW_CONFIG = WorkflowConfig()
 
 
 class WorkflowTest(unittest.TestCase):
@@ -69,8 +69,8 @@ class WorkflowTest(unittest.TestCase):
             flow = create_flow()
             flow.set_start_comp("start", MockStartNode("start"),
                                 inputs_schema={
-                                    "a": "${user.inputs.a}",
-                                    "b": "${user.inputs.b}",
+                                    "a": "${a}",
+                                    "b": "${b}",
                                     "c": 1,
                                     "d": [1, 2, 3]})
 

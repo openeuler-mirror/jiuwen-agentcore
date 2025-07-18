@@ -39,6 +39,8 @@ class TraceBaseHandler(BaseHandler):
         return {"type": self.event_name(), "payload": span}
 
     async def _emit_stream_writer(self, span):
+        if self._stream_writer is None:
+            return
         await self._stream_writer.write(self._format_data(span))
 
     async def _send_data(self, span):
