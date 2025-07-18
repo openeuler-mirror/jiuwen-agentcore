@@ -1,13 +1,14 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
+import json
 from dataclasses import dataclass, field
 from typing import List, Any, Dict, Optional, Iterator, AsyncIterator
 
 from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.enum.enum import WorkflowLLMResponseType, MessageRole
-from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.common.exception.exception import JiuWenBaseException, InterruptException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
@@ -126,7 +127,7 @@ class LLMExecutable(Executable):
         if inputs:
             processed_inputs = inputs.copy()
             if self._context:
-                chat_history: list = self._context.store.read(WORKFLOW_CHAT_HISTORY)
+                chat_history: list = self._context.state.get(WORKFLOW_CHAT_HISTORY)
                 chat_history = chat_history[:-1] if chat_history else []
                 full_input = ""
                 for history in chat_history[-CHAT_HISTORY_MAX_TURN:]:
