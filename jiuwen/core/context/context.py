@@ -20,6 +20,7 @@ class Context(ABC):
         self._tracer = None
         self._callback_manager = CallbackManager()
         self._stream_writer_manager: StreamWriterManager = None
+        self._controller_context_manager = None
 
     def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager):
         if self._stream_writer_manager is not None:
@@ -28,6 +29,9 @@ class Context(ABC):
 
     def set_tracer(self, tracer: Tracer):
         self._tracer = tracer
+
+    def set_controller_context_manager(self, controller_context_manager):
+        self._controller_context_manager = controller_context_manager
 
     @property
     def config(self) -> Config:
