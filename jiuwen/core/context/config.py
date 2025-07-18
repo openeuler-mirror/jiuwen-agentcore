@@ -4,6 +4,7 @@
 from abc import ABC
 from typing import TypedDict, Any, Optional
 
+from jiuwen.core.component.base import WorkflowMetadata
 from jiuwen.core.context.state import Transformer
 
 class MetadataLike(TypedDict):
@@ -21,6 +22,7 @@ class CompIOConfig(ABC):
         self.outputs_transformer = outputs_transformer
 
 class WorkflowConfig:
+    metadata: WorkflowMetadata = WorkflowMetadata()
     comp_configs: dict[str, CompIOConfig] = {}
     stream_edges: dict[str, list[str]] = {}
 

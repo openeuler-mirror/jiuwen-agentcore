@@ -27,12 +27,12 @@ class WorkflowAgent(Agent):
     def _init_task_manager(self):
         return None
 
-    def invoke(self, inputs: Dict) -> Dict:
+    def invoke(self, inputs: Dict, context: Context) -> Dict:
         output: WorkflowControllerOutput = self._controller.invoke(inputs)
 
         outputs = [self._agent_handler.invoke(st) for st in output.sub_tasks]
 
         return {"outputs": outputs}
 
-    def stream(self, inputs: Dict):
+    def stream(self, inputs: Dict, context: Context):
         pass
