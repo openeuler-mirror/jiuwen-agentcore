@@ -79,8 +79,8 @@ class State(ABC):
             return
         return self._io_state.get(key)
 
-    def update_trace(self, span):
-        self._trace_state.update({self._node_id: span})
+    def update_trace(self, invoke_id: str, span):
+        self._trace_state.update({invoke_id: span})
 
     def update_comp(self, data: dict) -> None:
         if self._comp_state is None:
@@ -134,4 +134,3 @@ class State(ABC):
             "global": self._global_state.get_updates(self._node_id),
             "comp": self._comp_state.get_updates(self._node_id)
         }
-

@@ -11,6 +11,8 @@ from jiuwen.core.context.utils import get_by_schema
 from jiuwen.core.graph.base import ExecutableGraph, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
+from jiuwen.core.tracer.tracer import Tracer
+
 
 class Vertex:
     def __init__(self, node_id: str, executable: Executable = None):
@@ -72,28 +74,28 @@ class Vertex:
 
     async def __trace_inputs__(self, inputs: Optional[dict]) -> None:
         # TODO 组件信息
-        # TODO 传入嵌套组件的invoke_id作为被嵌套组件的parent_invoke_id
-        # #
-        """
-        EI: workflow:
-        start -> 嵌套-> llm -> end， start.parent_invoke_id="", llm.parent_invoke_id="start", end.parent_invoke_id="llm"
-        子workflow:
-        start -> llm -> end， start.parent_invoke_id="", llm.parent_invoke_id="start", end.parent_invoke_id="llm"
-        parentNodeId = "父workflow中的嵌套组件id"
-        （子workflow情况，通过parentNodeId字段记录触发调用的component_id，获取嵌套关系）
-        """
-        # TODO 如果当前组件是workflow 并且
-        trace_workflow_span_manager = self._context.tracer.tracer_workflow_span_manager()
-        tracer_workflow_span = trace_workflow_span_manager.create_workflow_span(trace_workflow_span_manager.last_span)
-        await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", span=tracer_workflow_span, inputs=inputs,
-                                           component_metadata={"component_type": self._node_id})
-        self._context.state.update_trace(tracer_workflow_span.invoke_id, tracer_workflow_span)
+
+        await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", invoke_id=self._context.executable_id,
+                                           inputs=inputs,
+                                           component_metadata={"component_type": self._context.executable_id})
+        self._context.state.update_trace(self._node_id,
+                                         self._context.tracer.tracer_workflow_span_manager.get_span(self._node_id))
+
+        if isinstance(self._executable, ExecWorkflowComponent):
+            self._origin_tracer = self._context.tracer
+            sub_tracer = Tracer(tracer_id=self._context.tracer._trace_id, parent_node_id=self._context.executable_id)
+            sub_tracer.init(self._context.stream_writer_manager, self._origin_tracer._callback_manager)
+            self._context.set_tracer(sub_tracer)
 
     async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
-        trace_workflow_span = self._context.tracer.tracer_workflow_span_manager().last_span
-        await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", span=trace_workflow_span,
+        if isinstance(self._executable, ExecWorkflowComponent):
+            self._context.set_tracer(self._origin_tracer)
+
+        await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", invoke_id=self._context.executable_id,
                                            outputs=outputs)
-        self._context.state.update_trace(trace_workflow_span)
+        self._context.state.update_trace(self._context.executable_id,
+                                         self._context.tracer.tracer_workflow_span_manager.get_span(
+                                             self._context.executable_id))
 
     def __is_stream__(self, state: GraphState) -> bool:
         return False

@@ -65,6 +65,12 @@ class TraceAgentHandler(TraceBaseHandler):
     def _format_data(self, span: TraceAgentSpan) -> dict:
         return {"type": self.event_name(), "payload": span.model_dump(by_alias=True)}
 
+    def _get_tracer_agent_span(self, invoke_id: str) -> TraceAgentSpan:
+        span = self._span_manager.get_span(invoke_id)
+        if span is not None:
+            return span
+        return self._span_manager.create_agent_span(self._span_manager.last_span)
+
     def _update_start_trace_data(self, span: TraceAgentSpan, invoke_type: str, inputs: Any, instance_info: dict,
                                  **kwargs):
         try:
@@ -226,10 +232,16 @@ class TraceWorkflowHandler(TraceBaseHandler):
             return NodeStatus.FINISH.value if span.outputs else NodeStatus.RUNNING.value
         return NodeStatus.START.value
 
-    @trigger_event
-    async def on_pre_invoke(self, span: TraceWorkflowSpan, inputs: Any, component_metadata: dict,
-                            **kwargs):
+    def _get_tracer_workflow_span(self, invoke_id: str) -> TraceWorkflowSpan:
+        span = self._span_manager.get_span(invoke_id)
+        if span is not None:
+            return span
+        return self._span_manager.create_workflow_span(invoke_id, self._span_manager.last_span)
 
+    @trigger_event
+    async def on_pre_invoke(self, invoke_id: str, inputs: Any, component_metadata: dict,
+                            **kwargs):
+        span = self._get_tracer_workflow_span(invoke_id)
         try:
             meta_data = json.dumps({
                 "component_id": component_metadata.get("component_id", ""),
@@ -252,8 +264,8 @@ class TraceWorkflowHandler(TraceBaseHandler):
         await self._send_data(span)
 
     @trigger_event
-    async def on_invoke(self, span: TraceWorkflowSpan, on_invoke_data: dict, exception: dict = None, **kwargs):
-
+    async def on_invoke(self, invoke_id: str, on_invoke_data: dict, exception: dict = None, **kwargs):
+        span = self._get_tracer_workflow_span(invoke_id)
         update_data = {}
         end_time = datetime.now(tz=tzlocal()).replace(tzinfo=None)
         if exception is not None:
@@ -282,8 +294,8 @@ class TraceWorkflowHandler(TraceBaseHandler):
             self._span_manager.update_span(span, {})
 
     @trigger_event
-    async def on_post_invoke(self, span: TraceWorkflowSpan, outputs, inputs=None, **kwargs):
-
+    async def on_post_invoke(self, invoke_id: str, outputs, inputs=None, **kwargs):
+        span = self._get_tracer_workflow_span(invoke_id)
         end_time = datetime.now(tz=tzlocal()).replace(tzinfo=None)
         update_data = {
             "outputs": outputs,

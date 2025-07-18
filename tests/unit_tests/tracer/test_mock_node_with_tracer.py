@@ -1,8 +1,8 @@
 import asyncio
-from jiuwen.core.context.config import Config
+import random
+
 from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
-from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.graph.executable import Input, Output
 from jiuwen.core.workflow.base import Workflow
 from tests.unit_tests.workflow.test_mock_node import MockNodeBase
 
@@ -15,11 +15,11 @@ class StreamNodeWithTracer(MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         context.state.set_outputs(self.node_id, inputs)
-        trace_workflow_span = context.tracer.tracer_workflow_span_manager().last_span
-        await context.tracer.trigger("tracer_workflow", "on_invoke", span=trace_workflow_span,
+        await context.tracer.trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id,
                                      on_invoke_data={"on_invoke_data": "mock with" + str(inputs)})
-        context.state.update_trace(trace_workflow_span)
-        await asyncio.sleep(5)
+        context.state.update_trace(context.executable_id,
+                                   context.tracer.tracer_workflow_span_manager.get_span(context.executable_id))
+        await asyncio.sleep(random.randint(0, 5))
         for data in self._datas:
             await asyncio.sleep(1)
             await context.stream_writer_manager.get_custom_writer().write(data)
