@@ -48,7 +48,7 @@ class CallbackManager:
         if handler_class_name not in self._trigger_events or event_name not in self._trigger_events[
             handler_class_name
         ]:
-            raise TypeError("event name not exists")
+            raise TypeError(f"event name not exists: {handler_class_name}, {event_name}")
         handler = self._handlers[handler_class_name]
         if hasattr(handler, event_name):
             method = getattr(handler, event_name)
