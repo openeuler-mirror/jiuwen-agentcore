@@ -74,7 +74,7 @@ async def test_tool_comp_invoke(mock_get_tool, mock_request, mock_tool, mock_too
 @patch('jiuwen.core.component.tool_comp.ToolExecutable.invoke')
 @patch('jiuwen.core.component.tool_comp.ToolExecutable.get_tool')
 @pytest.mark.asyncio
-async def test_tool_comp_invoke(mock_get_tool, mock_invoke, mock_tool, mock_tool_config, fake_ctx):
+async def test_tool_comp_in_workflow(mock_get_tool, mock_invoke, mock_tool, mock_tool_config, fake_ctx):
     mock_get_tool.return_value = mock_tool
     mock_invoke.return_value = 'res'
     context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)

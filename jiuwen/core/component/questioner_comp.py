@@ -216,7 +216,7 @@ class QuestionerDirectReplyHandler:
             user_fields = inputs.get(USER_FIELDS_KEY, dict())
             output.question = QuestionerUtils.format_template(self._config.question_content, user_fields)
             self._state = self._state.handle_event(QuestionerEvent.USER_INTERACT_EVENT)
-            return dict(usesFields=output.model_dump(exclude_defaults=True))
+            return dict(userFields=output.model_dump(exclude_defaults=True))
 
         if self._need_extract_fields():
             is_continue_ask = self._initial_extract_from_chat_history(chat_history, output)
@@ -227,7 +227,7 @@ class QuestionerDirectReplyHandler:
                 error_code=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.code,
                 message=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.errmsg
             )
-        return dict(usesFields=output.model_dump(exclude_defaults=True))
+        return dict(userFields=output.model_dump(exclude_defaults=True))
 
     def _handle_user_interact_state(self, inputs, context):
         output = QuestionerOutput()
@@ -238,7 +238,7 @@ class QuestionerDirectReplyHandler:
         if self._is_set_question_content() and not self._need_extract_fields():
             output.user_response = user_response
             self._state = self._state.handle_event(QuestionerEvent.END_EVENT)
-            return dict(usesFields=output.model_dump(exclude_defaults=True))
+            return dict(userFields=output.model_dump(exclude_defaults=True))
 
         if self._need_extract_fields():
             is_continue_ask = self._repeat_extract_from_chat_history(chat_history, output)
@@ -249,7 +249,7 @@ class QuestionerDirectReplyHandler:
                 error_code=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.code,
                 message=StatusCode.WORKFLOW_QUESTIONER_QUESTION_EMPTY_DIRECT_COLLECTION_ERROR.errmsg
             )
-        return dict(usesFields=output.model_dump(exclude_defaults=True))
+        return dict(userFields=output.model_dump(exclude_defaults=True))
 
     def _handle_end_state(self, inputs, context):
         return dict(
@@ -392,7 +392,7 @@ class QuestionerExecutable(Executable):
     @staticmethod
     def _store_state_to_context(state: QuestionerState, context):
         state_dict = state.serialize()
-        context.state.update(QUESTIONER_STATE_KEY, state_dict)
+        context.state.update({QUESTIONER_STATE_KEY: state_dict})
 
     def state(self, state: QuestionerState):
         self._state = state
