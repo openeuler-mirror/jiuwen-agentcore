@@ -51,6 +51,12 @@ class StatusCode(Enum):
         101045, "The question cannot be empty in direct user response collection mode")
     WORKFLOW_QUESTIONER_INIT_STATE_ERROR = (101059, "Failed to initialize questioner state")
 
+    # intent detection组件 101681-101710
+    WORKFLOW_INTENT_DETECTION_USER_INPUT_ERROR = (101095, "User input pre-processing failed with error"
+                                                          "message = {error_msg}")
+    WORKFLOW_INTENT_DETECTION_LLM_INVOKE_ERROR = (101096, "Model invoke failed with error message = {error_msg}")
+    WORKFLOW_INTENT_DETECTION_PROMPT_INVOKE_ERROR = (101098, "Prompt invoke failed with error message = {error_msg}")
+
     @property
     def code(self):
         return self.value[0]
