@@ -18,6 +18,7 @@ from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.utils.llm.base import BaseChatModel
+from jiuwen.core.utils.llm.messages import BaseMessage
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.prompt.template.template_manager import TemplateManager
@@ -287,10 +288,10 @@ class QuestionerDirectReplyHandler:
             result.append(dict(role="user", content=self._query))
         return result
 
-    def _build_llm_inputs(self, chat_history: list = None) -> List:
+    def _build_llm_inputs(self, chat_history: list = None) -> List[BaseMessage]:
         prompt_template_input = self._create_prompt_template_keywords(chat_history)
-        prompt_template = TemplateManager().format(prompt_template_input, self._prompt)
-        return prompt_template.content
+        formatted_template: Template = self._prompt.format(prompt_template_input)
+        return formatted_template.to_messages()
 
     def _create_prompt_template_keywords(self, chat_history):
         params_list, required_name_list = list(), list()
@@ -304,9 +305,9 @@ class QuestionerDirectReplyHandler:
 
         return dict(required_name=required_name_str, required_params_list=all_param_str,
                     extra_info=self._config.extra_prompt_for_fields_extraction, example=self._config.example_content,
-                    dig_history=dialogue_history_str)
+                    dialogue_history=dialogue_history_str)
 
-    def _invoke_llm_for_extraction(self, llm_inputs):
+    def _invoke_llm_for_extraction(self, llm_inputs: List[BaseMessage]):
         try:
             response = self._model.invoke(llm_inputs).content
         except Exception as e:
@@ -441,7 +442,7 @@ class QuestionerExecutable(Executable):
 
     def _init_prompt(self) -> Template:
         if self._config.prompt_template:
-            return Template(name="user_prompt", content=self._config.prompt_template)
+            return Template(name="question_user_prompt", content=self._config.prompt_template)
 
         filters = dict(model_name=self._config.model.model_info.model_name)
         return TemplateManager().get(name=TEMPLATE_NAME, filters=filters)
