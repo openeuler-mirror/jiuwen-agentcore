@@ -5,6 +5,8 @@ import types
 import pytest
 from unittest.mock import Mock
 
+from jiuwen.core.utils.llm.messages import AIMessage
+
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
 
@@ -34,6 +36,7 @@ def fake_ctx():
     ctx = MagicMock(spec=Context)
     ctx.store = MagicMock()
     ctx.store.read.return_value = []
+    ctx.executable_id = "test"
     return ctx
 
 
@@ -75,7 +78,7 @@ class TestLLMExecutableInvoke:
     ):
         config = LLMCompConfig(
             model=fake_model_config,
-            template_content=[{"role": "user", "content": "Hello {name}"}],
+            template_content=[{"role": "user", "content": "Hello {query}"}],
             response_format={"type": "text"},
             output_config={"result": {
                 "type": "string",
@@ -85,10 +88,10 @@ class TestLLMExecutableInvoke:
         exe = LLMExecutable(config)
 
         fake_llm = AsyncMock()
-        fake_llm.ainvoke = AsyncMock(return_value="mocked response")
+        fake_llm.ainvoke = AsyncMock(return_value=AIMessage(content="mocked response"))
         mock_get_model.return_value = fake_llm
 
-        output = await exe.invoke(fake_input(name="pytest"), fake_ctx)
+        output = await exe.invoke(fake_input(userFields=dict(query="pytest")), fake_ctx)
 
         assert output[USER_FIELDS] == {'result': 'mocked response'}
         fake_llm.ainvoke.assert_called_once()

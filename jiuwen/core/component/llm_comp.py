@@ -12,7 +12,7 @@ from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.enum.enum import WorkflowLLMResponseType, MessageRole
 from jiuwen.core.common.exception.exception import JiuWenBaseException, InterruptException
 from jiuwen.core.common.exception.status_code import StatusCode
-from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter, ValidationUtils
+from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter, ValidationUtils, SchemaGenerator
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
@@ -91,7 +91,7 @@ class LLMPromptFormatter:
         if res_type == "text":
             return history
 
-        last_user_idx = self._find_last_user_index(history)
+        last_user_idx = LLMPromptFormatter._find_last_user_index(history)
         if last_user_idx is None:
             return history
         query = history[last_user_idx]["content"]
@@ -107,7 +107,7 @@ class LLMPromptFormatter:
             json_schema = SchemaGenerator.generate_json_schema(output_config)
             instruction = (
                     response_format.get("jsonInstruction")
-                    or self._DEFAULT_JSON_INSTRUCTION
+                    or LLMPromptFormatter._DEFAULT_JSON_INSTRUCTION
             )
             prompt = (
                 instruction
