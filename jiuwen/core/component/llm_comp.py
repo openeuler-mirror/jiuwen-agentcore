@@ -5,12 +5,14 @@ import json
 from dataclasses import dataclass, field
 from typing import List, Any, Dict, Optional, Iterator, AsyncIterator
 
+from numpy.ma.core import not_equal
+
 from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.enum.enum import WorkflowLLMResponseType, MessageRole
 from jiuwen.core.common.exception.exception import JiuWenBaseException, InterruptException
 from jiuwen.core.common.exception.status_code import StatusCode
-from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter
+from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter, ValidationUtils
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
@@ -18,6 +20,7 @@ from jiuwen.core.utils.llm.base import BaseChatModel
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.prompt.template.template_manager import TemplateManager
+from jiuwen.core.common.logging.base import logger
 
 WORKFLOW_CHAT_HISTORY = "workflow_chat_history"
 CHAT_HISTORY_MAX_TURN = 3
@@ -43,6 +46,82 @@ RESPONSE_FORMAT_TO_PROMPT_MAP = {
 }
 
 
+class LLMPromptFormatter:
+    """格式化对话历史中的最后一条用户消息，追加输出格式指令。"""
+
+    # 常量模板，避免在函数内重复创建
+    _DEFAULT_MARKDOWN_INSTRUCTION = (
+        "Please return the answer in markdown format.\n"
+        "- For headings, use number signs (#).\n"
+        "- For list items, start with dashes (-).\n"
+        "- To emphasize text, wrap it with asterisks (*).\n"
+        "- For code or commands, surround them with backticks (`).\n"
+        "- For quoted text, use greater than signs (>).\n"
+        "- For links, wrap the text in square brackets [], followed by the URL in parentheses ().\n"
+        "- For images, use square brackets [] for the alt text, followed by the image URL in parentheses ().\n"
+        "The question is: ${query}."
+    )
+
+    _DEFAULT_JSON_INSTRUCTION = (
+        "Carefully consider the user's question to ensure your answer is logical and makes sense.\n"
+        "- Make sure your explanation is concise and easy to understand, not verbose.\n"
+        "- Strictly return the answer in valid JSON format only, and "
+        "\"DO NOT ADD ANY COMMENTS BEFORE OR AFTER IT\" to ensure it could be formatted "
+        "as a JSON instance that conforms to the JSON schema below.\n"
+        "Here is the JSON schema: ${json_schema}.\n"
+        "The question is: ${query}."
+    )
+
+    @staticmethod
+    def _find_last_user_index(history: List[Dict[str, Any]]) -> int | None:
+        """返回最后一条 role=user 的索引；不存在则返回 None。"""
+        for idx in range(len(history) - 1, -1, -1):
+            if history[idx].get("role") == "user":
+                return idx
+        return None
+
+    @staticmethod
+    def format_prompt(
+            history: List[Dict[str, Any]],
+            response_format: Dict[str, Any],
+            output_config: dict,
+    ) -> List[Dict[str, Any]]:
+        """根据 response_format 格式化最后一条用户消息。"""
+        res_type = response_format.get("type")
+        if res_type == "text":
+            return history
+
+        last_user_idx = self._find_last_user_index(history)
+        if last_user_idx is None:
+            return history
+        query = history[last_user_idx]["content"]
+
+        if res_type == "markdown":
+            instruction = (
+                    response_format.get("markdownInstruction")
+                    or self._DEFAULT_MARKDOWN_INSTRUCTION
+            )
+            prompt = instruction.replace("${query}", query)
+
+        elif res_type == "json":
+            json_schema = SchemaGenerator.generate_json_schema(output_config)
+            instruction = (
+                    response_format.get("jsonInstruction")
+                    or self._DEFAULT_JSON_INSTRUCTION
+            )
+            prompt = (
+                instruction
+                .replace("${json_schema}", json.dumps(json_schema, ensure_ascii=False))
+                .replace("${query}", query)
+            )
+
+        else:
+            ValidationUtils.raise_invalid_params_error(f"'{res_type}' is not supported")
+
+        history[last_user_idx]["content"] = prompt
+        return history
+
+
 @dataclass
 class LLMCompConfig(ComponentConfig):
     model: 'ModelConfig' = None
@@ -66,11 +145,16 @@ class LLMExecutable(Executable):
         try:
             self._set_context(context)
             model_inputs = self._prepare_model_inputs(inputs)
-            response = await self._llm.ainvoke(model_inputs)
+            logger.info("[%s] model inputs %s", self._context.executable_id, model_inputs)
+            llm_response = await self._llm.ainvoke(model_inputs)
+            response = llm_response.content
+            logger.info("[%s] model outputs %s", self._context.executable_id, response)
             return self._create_output(response)
         except JiuWenBaseException:
             raise
         except Exception as e:
+            import traceback
+            print(traceback.format_exc())
             raise JiuWenBaseException(error_code=StatusCode.WORKFLOW_LLM_INIT_ERROR.code,
                                       message=StatusCode.WORKFLOW_LLM_INIT_ERROR.errmsg.format(msg=str(e))) from e
 
@@ -120,7 +204,11 @@ class LLMExecutable(Executable):
         return ModelFactory().get_model(self._config.model.model_provider, self._config.model.model_info)
 
     def _validate_inputs(self, inputs: Input) -> None:
-        pass
+        if not inputs or not inputs.get(USER_FIELDS):
+            raise JiuWenBaseException(
+                error_code=StatusCode.WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR.code,
+                message=StatusCode.WORKFLOW_LLM_TEMPLATE_ASSEMBLE_ERROR.errmsg
+            )
 
     def _process_inputs(self, inputs: dict) -> dict:
         processed_inputs = {}
@@ -145,10 +233,24 @@ class LLMExecutable(Executable):
                 message=StatusCode.WORKFLOW_LLM_INIT_ERROR.errmsg.format(msg="Failed to retrieve llm template content")
             )
         default_template = Template(name="default", content=str(user_prompt[0].get("content")))
-        return default_template.format(inputs)
+        test = default_template.format(inputs).content
+        return default_template.format(inputs).content
 
     def _get_model_input(self, inputs: dict):
-        return self._build_prompt_message(inputs)
+        user_prompt = self._build_prompt_message(inputs)
+        history = self._get_history(user_prompt)
+        return LLMPromptFormatter.format_prompt(history=history,
+                                                response_format=self._config.response_format,
+                                                output_config=self._config.output_config)
+
+    def _get_history(self, user_prompt: str):
+        original_histoty = []
+        if self._context:
+            chat_history: list = self._context.state.get(WORKFLOW_CHAT_HISTORY)
+            if chat_history and self._config.enable_history:
+                original_histoty = chat_history
+        original_histoty.append({"role": "user", "content": user_prompt})
+        return original_histoty
 
     def _get_response_format(self):
         try:

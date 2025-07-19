@@ -4,7 +4,7 @@
 from abc import ABC
 from typing import TypedDict, Any, Optional
 
-from jiuwen.core.component.base import WorkflowMetadata
+from jiuwen.core.common.configs.workflow_config import WorkflowMetadata
 from jiuwen.core.context.state import Transformer
 
 class MetadataLike(TypedDict):

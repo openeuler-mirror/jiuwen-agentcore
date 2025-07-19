@@ -3,8 +3,6 @@ from jiuwen.agent.context.message_manager import MessageMgr
 from jiuwen.agent.context.model_manager import ModelMgr
 from jiuwen.agent.context.tool_manager import ToolMgr
 from jiuwen.agent.context.workflow_manager import WorkflowMgr
-from jiuwen.core.context.context import Context
-
 
 class ControllerContextMgr:
     """
