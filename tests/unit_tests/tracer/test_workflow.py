@@ -1,3 +1,4 @@
+import copy
 import json
 import sys
 import types
@@ -351,13 +352,87 @@ class WorkflowTest(unittest.TestCase):
             elif payload.get("invokeId") == "end":
                 assert payload.get("parentInvokeId") == "b", f"b node parent_invoke_id should be a"
                 assert payload.get("parentNodeId") == "", f"b node parent_node_id should be ''"
-            elif payload.get("invokeId") == "sub_start":
+            elif payload.get("invokeId") == "a.sub_start":
                 assert payload.get("parentInvokeId") == None, f"sub_start node parent_invoke_id should be None"
                 assert payload.get("parentNodeId") == "a", f"sub_start node parent_node_id should be a"
-            elif payload.get("invokeId") == "sub_a":
-                assert payload.get("parentInvokeId") == "sub_start", f"sub_a node parent_invoke_id should be sub_start"
+            elif payload.get("invokeId") == "a.sub_a":
+                assert payload.get("parentInvokeId") == "a.sub_start", f"sub_a node parent_invoke_id should be sub_start"
                 assert payload.get("parentNodeId") == "a", f"sub_a node parent_node_id should be a"
-            elif payload.get("invokeId") == "sub_end":
-                assert payload.get("parentInvokeId") == "sub_a", f"sub_end node parent_invoke_id should be sub_a"
+            elif payload.get("invokeId") == "a.sub_end":
+                assert payload.get("parentInvokeId") == "a.sub_a", f"sub_end node parent_invoke_id should be sub_a"
                 assert payload.get("parentNodeId") == "a", f"sub_end node parent_node_id should be a"
         record_tracer_info(tracer_chunks, "test_nested_stream_workflow_with_tracer.json")
+
+    def test_nested_parallel_stream_workflow_with_tracer(self):
+        """
+        main_workflow: start -> a(sub_workflow) | b(sub_workflow) -> end
+        sub_workflow: sub_start -> sub_a -> sub_end
+        """
+        tracer_chunks = []
+
+        async def stream_workflow():
+            # sub_workflow: start->a(stream out)->end
+            sub_workflow = create_flow()
+            sub_workflow.set_start_comp("sub_start", MockStartNode("start"),
+                                        inputs_schema={
+                                            "a": "${a}",
+                                            "b": "${b}",
+                                            "c": 1,
+                                            "d": [1, 2, 3]})
+            expected_datas = [
+                {"node_id": "sub_start", "id": 1, "data": "1"},
+                {"node_id": "sub_start", "id": 2, "data": "2"},
+            ]
+            expected_datas_model = [CustomSchema(**item) for item in expected_datas]
+
+            sub_workflow.add_workflow_comp("sub_a", StreamNodeWithTracer("a", expected_datas),
+                                           inputs_schema={
+                                               "aa": "${sub_start.a}",
+                                               "ac": "${sub_start.c}"})
+            sub_workflow.set_end_comp("sub_end", MockEndNode("end"),
+                                      inputs_schema={
+                                          "result": "${sub_a.aa}"})
+            sub_workflow.add_connection("sub_start", "sub_a")
+            sub_workflow.add_connection("sub_a", "sub_end")
+
+            sub_workflow_2 = copy.deepcopy(sub_workflow)
+
+            # main_workflow: start->a(sub workflow) | b(sub workflow) ->end
+            main_workflow = create_flow()
+            main_workflow.set_start_comp("start", MockStartNode("start"),
+                                         inputs_schema={
+                                             "a": "${a}",
+                                             "b": "${b}",
+                                             "c": 1,
+                                             "d": [1, 2, 3]})
+
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
+                                            inputs_schema={
+                                                "aa": "${start.a}",
+                                                "ac": "${start.c}"})
+
+            node_b_expected_datas = [
+                {"node_id": "b", "id": 1, "data": "1"},
+                {"node_id": "b", "id": 2, "data": "2"},
+            ]
+
+            main_workflow.add_workflow_comp("b", ExecWorkflowComponent("b", sub_workflow_2),
+                                            inputs_schema={
+                                                "aa": "${start.a}",
+                                                "ac": "${start.c}"})
+
+            main_workflow.set_end_comp("end", MockEndNode("end"),
+                                       inputs_schema={
+                                           "result": "${a.aa}"})
+            main_workflow.add_connection("start", "a")
+            main_workflow.add_connection("a", "end")
+            main_workflow.add_connection("start", "b")
+            main_workflow.add_connection("b", "end")
+
+            async for chunk in main_workflow.stream({"a": 1, "b": "haha"}, create_context_with_tracer()):
+                if isinstance(chunk, TraceSchema):
+                    print(f"stream chunk: {chunk}")
+                    tracer_chunks.append(chunk)
+
+        self.loop.run_until_complete(stream_workflow())
+        record_tracer_info(tracer_chunks, "test_nested_parallel_stream_workflow_with_tracer.json")
