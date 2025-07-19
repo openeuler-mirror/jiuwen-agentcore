@@ -20,10 +20,16 @@ class ToolInfo(BaseModel):
     function: Function
     results: Any = {}
 
-class ToolCall(BaseModel):
+class FunctionInfo(BaseModel):
     name: str
+    arguments: str
+
+class ToolCall(BaseModel):
     args: Dict[str, Any] = {}
     id: Optional[str]
+    index: int
+    type: str
+    function: FunctionInfo
 
 class BaseMessage(BaseModel):
     role: str
