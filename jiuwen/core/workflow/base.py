@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
-from jiuwen.core.context.config import CompIOConfig, Transformer, WorkflowConfig
+from jiuwen.core.context.config import CompIOConfig, Transformer
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import Graph, Router, INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Input, Output
@@ -16,6 +16,7 @@ from jiuwen.core.stream.base import StreamMode, BaseStreamMode
 from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.tracer.tracer import Tracer
+from jiuwen.core.workflow.workflow_config import WorkflowConfig
 
 
 class WorkflowOutput(BaseModel):

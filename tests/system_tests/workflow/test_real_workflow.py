@@ -31,7 +31,7 @@ from jiuwen.core.component.questioner_comp import (
     QuestionerConfig,
 )
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
-from jiuwen.core.context.config import Config, WorkflowConfig
+from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.utils.llm.base import BaseModelInfo
@@ -39,6 +39,7 @@ from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.tool.service_api.param import Param
 from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from jiuwen.core.workflow.base import Workflow
+from jiuwen.core.workflow.workflow_config import WorkflowConfig
 from jiuwen.graph.pregel.graph import PregelGraph
 from tests.unit_tests.workflow.test_mock_node import MockEndNode, MockStartNode
 
