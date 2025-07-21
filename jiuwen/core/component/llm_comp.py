@@ -3,11 +3,8 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import json
 from dataclasses import dataclass, field
-from typing import List, Any, Dict, Optional, Iterator, AsyncIterator
+from typing import List, Any, Dict, Optional, AsyncIterator
 
-from numpy.ma.core import not_equal
-
-from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.enum.enum import WorkflowLLMResponseType, MessageRole
 from jiuwen.core.common.exception.exception import JiuWenBaseException, InterruptException

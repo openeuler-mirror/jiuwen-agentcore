@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from unittest.mock import patch
 
-from jiuwen.core.common.configs.model_config import ModelConfig
+from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.questioner_comp import QuestionerInteractState, FieldInfo, QuestionerConfig, \
     QuestionerComponent
 from jiuwen.core.context.config import Config

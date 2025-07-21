@@ -3,12 +3,10 @@ import sys
 import types
 from unittest.mock import Mock, AsyncMock, patch
 
-from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.constants.constant import USER_FIELDS
+from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.intent_detection_comp import IntentDetectionExecutable, IntentDetectionConfig
 from jiuwen.core.context.context import Context
-from jiuwen.core.utils.llm.base import BaseModelInfo
-from jiuwen.core.utils.prompt.template.template import Template
 
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
