@@ -4,17 +4,16 @@
 import ast
 import json
 import re
-from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional, List, Dict, Iterator, AsyncIterator
 
 from pydantic import BaseModel, Field
 
-from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
+from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.utils.llm.base import BaseChatModel

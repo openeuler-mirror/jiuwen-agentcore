@@ -4,10 +4,10 @@
 """Controller of ReActAgent"""
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
-from jiuwen.agent.controller.base import Controller, ControllerOutput, ControllerInput
+from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.agent.controller.base import Controller, ControllerOutput, ControllerInput
 from jiuwen.core.agent.handler.base import AgentHandler
 from jiuwen.agent.config.base import AgentConfig
 from jiuwen.core.agent.task.task import SubTask

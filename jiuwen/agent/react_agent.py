@@ -5,14 +5,12 @@
 from typing import Dict, Iterator, Any, List
 
 from jiuwen.agent.config.react_config import ReActAgentConfig
-from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
-from jiuwen.agent.controller.react_controller import ReActController, ReActControllerOutput
+from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.agent.controller.react_controller import ReActController, ReActControllerOutput
 from jiuwen.core.agent.agent import Agent
 from jiuwen.core.agent.handler.base import AgentHandlerImpl
 from jiuwen.agent.state.react_state import ReActState
-from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.utils.tool.base import Tool
 from jiuwen.core.workflow.base import Workflow
 

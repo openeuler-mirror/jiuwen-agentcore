@@ -1,8 +1,8 @@
 from typing import Dict
 
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
-from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
-from jiuwen.agent.controller.workflow_controller import WorkflowController, WorkflowControllerOutput
+from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.agent.controller.workflow_controller import WorkflowController, WorkflowControllerOutput
 from jiuwen.core.agent.agent import Agent
 from jiuwen.core.agent.handler.base import AgentHandlerImpl
 from jiuwen.core.context.config import Config

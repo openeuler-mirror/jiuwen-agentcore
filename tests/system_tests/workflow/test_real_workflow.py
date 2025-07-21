@@ -15,12 +15,11 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import unittest
 from unittest.mock import patch
 
-from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.component.branch_comp import BranchComponent
+from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.intent_detection_comp import (
     IntentDetectionComponent,
     IntentDetectionConfig,
@@ -44,10 +43,10 @@ from jiuwen.graph.pregel.graph import PregelGraph
 from tests.unit_tests.workflow.test_mock_node import MockEndNode, MockStartNode
 
 # 注意：切勿将真实密钥提交到仓库！
-API_BASE = os.getenv("API_BASE", "")
-API_KEY = os.getenv("API_KEY", "")
-MODEL_NAME = os.getenv("MODEL_NAME", "")
-MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "")
+API_BASE = "https://api.siliconflow.cn/v1/chat/completions"
+API_KEY = "sk-cuitxjipgkvlhjubkcxjrgxfphczzpihefbeutobhytbfuig"
+MODEL_NAME = "Qwen/Qwen3-14B"
+MODEL_PROVIDER = "siliconflow"
 
 # Mock 插件返回值
 _FINAL_RESULT: str = "Success"
@@ -298,7 +297,7 @@ class RealWorkflowTest(unittest.TestCase):
         """
         测试链路：
         Start → Intent → Branch → LLM → Questioner → Plugin → End
-                                       |-----------------------↑
+                            |----------------------------------↑
 
         输入：查询杭州的旅游景点
         断言：最终返回 _FINAL_RESULT

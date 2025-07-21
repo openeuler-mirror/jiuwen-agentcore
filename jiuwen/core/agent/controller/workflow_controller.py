@@ -3,7 +3,7 @@ from typing import List
 from pydantic import Field
 
 from jiuwen.agent.config.base import AgentConfig
-from jiuwen.agent.controller.base import Controller, ControllerOutput, ControllerInput
+from jiuwen.core.agent.controller.base import Controller, ControllerOutput, ControllerInput
 from jiuwen.core.agent.task.task import SubTask
 from jiuwen.core.context.context import Context
 

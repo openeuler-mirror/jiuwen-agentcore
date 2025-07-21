@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Iterator, Optional, Dict, List
 
 from jiuwen.agent.config.base import AgentConfig
-from jiuwen.agent.context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.context.controller_context_manager.controller_context_manager import ControllerContextMgr
 from jiuwen.core.context.context import Context
 from jiuwen.core.workflow.base import Workflow
 

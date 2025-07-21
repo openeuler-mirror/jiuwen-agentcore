@@ -1,10 +1,10 @@
-import asyncio
 import sys
 import types
 
 import pytest
 from unittest.mock import Mock
 
+from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.utils.llm.messages import AIMessage
 
 fake_base = types.ModuleType("base")
@@ -16,13 +16,11 @@ fake_exception_module.JiuWenBaseException = Mock()
 sys.modules["jiuwen.core.common.logging.base"] = fake_base
 sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
 
-from jiuwen.core.workflow.base import Workflow
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
 from tests.unit_tests.workflow.test_workflow import create_flow, create_context
 
 from unittest.mock import patch, AsyncMock
 
-from jiuwen.core.common.configs.model_config import ModelConfig
 from jiuwen.core.common.constants.constant import USER_FIELDS
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.component.llm_comp import LLMCompConfig, LLMExecutable, LLMComponent
