@@ -111,100 +111,100 @@ class TraceAgentHandler(TraceBaseHandler):
         self._span_manager.update_span(span, update_data)
 
     @trigger_event
-    def on_chain_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_chain_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.CHAIN.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_chain_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_chain_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_chain_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_chain_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_llm_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_llm_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.LLM.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_llm_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_llm_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_llm_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_llm_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_prompt_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_prompt_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.PROMPT.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_prompt_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_prompt_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_prompt_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_prompt_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_plugin_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_plugin_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.PLUGIN.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_plugin_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_plugin_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_plugin_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_plugin_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_retriever_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_retriever_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.RETRIEVER.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_retriever_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_retriever_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_retriever_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_retriever_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_evaluator_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
+    async def on_evaluator_start(self, span: TraceAgentSpan, inputs: Any, instance_info: dict, **kwargs):
         self._update_start_trace_data(invoke_type=InvokeType.EVALUATOR.value, span=span, inputs=inputs,
                                       instance_info=instance_info, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_evaluator_end(self, span: TraceAgentSpan, outputs, **kwargs):
+    async def on_evaluator_end(self, span: TraceAgentSpan, outputs, **kwargs):
         self._update_end_trace_data(span=span, outputs=outputs, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
     @trigger_event
-    def on_evaluator_error(self, span: TraceAgentSpan, error, **kwargs):
+    async def on_evaluator_error(self, span: TraceAgentSpan, error, **kwargs):
         self._update_error_trace_data(span=span, error=error, **kwargs)
-        self._send_data(span)
+        await self._send_data(span)
 
 
 class TraceWorkflowHandler(TraceBaseHandler):
@@ -264,7 +264,7 @@ class TraceWorkflowHandler(TraceBaseHandler):
         await self._send_data(span)
 
     @trigger_event
-    async def on_invoke(self, invoke_id: str, on_invoke_data: dict, exception: dict = None, **kwargs):
+    async def on_invoke(self, invoke_id: str, on_invoke_data: dict, exception: Exception = None, **kwargs):
         span = self._get_tracer_workflow_span(invoke_id)
         update_data = {}
         end_time = datetime.now(tz=tzlocal()).replace(tzinfo=None)
@@ -315,5 +315,3 @@ class TraceWorkflowHandler(TraceBaseHandler):
         if span.component_type == "End" and span.end_time:
             span.llm_invoke_data.clear()
             self._span_manager.update_span(span, {})
-
-        await asyncio.sleep(1)
