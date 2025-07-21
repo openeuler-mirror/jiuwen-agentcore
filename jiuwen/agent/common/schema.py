@@ -19,6 +19,7 @@ class WorkflowSchema(BaseModel):
 
 class PluginSchema(BaseModel):
     id: str = Field(default="")
+    version: str = Field(default="")
     name: str = Field(default="")
     description: str = Field(default="")
     inputs: Dict[str, Any] = Field(default_factory=dict)

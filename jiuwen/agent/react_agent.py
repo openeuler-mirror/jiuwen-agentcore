@@ -13,7 +13,8 @@ from jiuwen.core.agent.controller.react_controller import ReActController, ReAct
     ReActControllerInput
 from jiuwen.core.agent.handler.base import AgentHandlerImpl, AgentHandlerInputs
 from jiuwen.agent.state.react_state import ReActState
-from jiuwen.core.agent.task.task import SubTask
+from jiuwen.core.agent.task.sub_task import SubTask
+from jiuwen.core.agent.task.task import Task
 from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
@@ -21,8 +22,8 @@ from jiuwen.core.utils.llm.messages import ToolMessage
 from jiuwen.core.utils.tool.base import Tool
 from jiuwen.core.workflow.base import Workflow
 
-
 REACT_AGENT_STATE_KEY = "react_agent_state"
+
 
 def create_react_agent_config(agent_id: str,
                               agent_version: str,
@@ -66,7 +67,9 @@ class ReActAgent(Agent):
     def _init_controller_context_manager(self) -> ControllerContextMgr:
         return ControllerContextMgr(self._config)
 
-    def invoke(self, inputs: Dict, context: Context) -> Dict:
+    async def invoke(self, inputs: Dict) -> Dict:
+        task: Task = self._task_manager.create_task(inputs.get("conversation_id"))
+        context = task.context
         context.set_controller_context_manager(self._controller_context_manager)
         self._load_state_from_context(context)
         controller_output = ReActControllerOutput()
@@ -75,7 +78,7 @@ class ReActAgent(Agent):
             self._state.handle_llm_response_event(controller_output.llm_output, controller_output.sub_tasks)
             self._store_state_to_context(context)
             if controller_output.should_continue:
-                completed_sub_tasks = self._execute_sub_tasks(context)
+                completed_sub_tasks = await self._execute_sub_tasks(context)
             else:
                 break
             self._state.handle_tool_invoked_event(completed_sub_tasks)
@@ -86,15 +89,15 @@ class ReActAgent(Agent):
         self._store_state_to_context(context)
         return dict(output=self._state.final_result)
 
-    def stream(self, inputs: Dict, context: Context) -> Iterator[Any]:
+    async def stream(self, inputs: Dict) -> Iterator[Any]:
         pass
 
-    def _execute_sub_tasks(self, context: Context):
+    async def _execute_sub_tasks(self, context: Context):
         to_exec_sub_tasks = self._state.sub_tasks
         completed_sub_tasks = []
         for st in to_exec_sub_tasks:
             inputs = AgentHandlerInputs(context=context, name=st.func_name, arguments=st.func_args)
-            exec_result = self._agent_handler.invoke(st.sub_task_type, inputs)
+            exec_result = await self._agent_handler.invoke(st.sub_task_type, inputs)
             st.result = json.dumps(exec_result, ensure_ascii=False) if isinstance(exec_result, dict) else exec_result
             completed_sub_tasks.append(st)
         self._update_chat_history_in_context(completed_sub_tasks, context)

@@ -6,9 +6,12 @@ from jiuwen.core.workflow.base import Workflow
 
 
 class WorkflowMgr:
-    def __init__(self):
+    def __init__(self, agent_config):
         self._workflows: Dict[str, Workflow] = dict()
         self._tools: Dict[str, Tool] = dict()
+
+    def get_workflow(self, workflow_instance_id: str) -> Workflow:
+        return self._workflows.get(workflow_instance_id)
 
     def add_workflows(self, workflows: List[Workflow]):
         if not workflows:

@@ -9,9 +9,8 @@ class ControllerContextMgr:
     """
     Agent上下文管理器：
     """
-
     def __init__(self, agent_config: AgentConfig):
-        self.workflow_mgr = WorkflowMgr()
+        self.workflow_mgr = WorkflowMgr(agent_config)
         self.tool_mgr = ToolMgr()
         self.model_mgr = ModelMgr()
         self.message_mgr = MessageMgr()

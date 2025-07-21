@@ -1,33 +1,67 @@
 import pytest
-from unittest.mock import Mock, patch
-
+from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
 from jiuwen.agent.workflow_agent import WorkflowAgent
+from jiuwen.core.context.agent_context import AgentContext
+from jiuwen.core.context.config import WorkflowConfig
+from jiuwen.core.workflow.base import Workflow
+from jiuwen.core.workflow.workflow_config import WorkflowMetadata
+from jiuwen.graph.pregel.graph import PregelGraph
+from tests.unit_tests.workflow.test_mock_node import MockStartNode, Node1, MockEndNode
 
 
 class TestWorkflowAgent:
-    # 在所有测试方法前一次性打补丁
-    @pytest.fixture(autouse=True, scope="class")
-    def _patch_deps(self):
-        # 把私有工厂方法替换掉
-        with patch.object(
-                WorkflowAgent, "_init_agent_handler", autospec=True
-        ) as mock_handler, patch.object(
-            WorkflowAgent, "_init_controller_context_manager", autospec=True
-        ):
-            # 返回统一的 mock handler
-            handler = Mock()
-            handler.invoke = Mock(side_effect=lambda st: {"mock": st.func_name})
-            mock_handler.return_value = handler
-            yield
+    @staticmethod
+    def _build_workflow(name, id, version):
+        workflow_config = WorkflowConfig(
+            metadata=WorkflowMetadata(
+                id=id,
+                version=version,
+                name=name,
+            )
+        )
+        flow = Workflow(workflow_config=workflow_config, graph=PregelGraph())
+        flow.set_start_comp("start", MockStartNode("start"),
+                            inputs_schema={
+                                "query": "${query}"})
+        flow.add_workflow_comp("node_a", Node1("node_a"),
+                               inputs_schema={
+                                   "output": "${start.query}"})
+        flow.set_end_comp("end", MockEndNode("end"),
+                          inputs_schema={
+                              "result": "${node_a.output}"})
+        flow.add_connection("start", "node_a")
+        flow.add_connection("node_a", "end")
+        return flow
 
     # 真正实例化
     @pytest.fixture(scope="class")
     def agent(self):
-        return WorkflowAgent(WorkflowAgentConfig())
+        agent_context = AgentContext()
+        id = "test_workflow"
+        name = "test_workflow"
+        version = "1"
+        description = "test_workflow"
+        workflow1 = self._build_workflow(name, id, version)
+        test_workflow_schema = WorkflowSchema(
+            id=id,
+            version=version,
+            name=name,
+            description=description,
+            inputs={"query": {
+                "type": "string",
+            }},
+        )
+        workflow_config = WorkflowAgentConfig(
+            workflows=[test_workflow_schema]
+        )
+        agent = WorkflowAgent(workflow_config, agent_context)
+        agent.bind_workflows([workflow1])
+        return agent
 
     # ---------- 测试用例 ----------
-    def test_invoke_single(self, agent):
-        inputs = {"workflows": [{"name": "echo", "params": {"text": "hi"}}]}
-        result = agent.invoke(inputs)
-        assert result == {"outputs": []}
+    @pytest.mark.asyncio
+    async def test_invoke_single(self, agent):
+        inputs = {"query": "hi"}
+        result = await agent.invoke(inputs)  # ✅ 使用 await
+        assert result == {'result': 'hi'}

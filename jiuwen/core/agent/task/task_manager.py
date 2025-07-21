@@ -1,27 +1,53 @@
-import threading
-from typing import Dict, Any, Optional
+from typing import List, Optional, Any, Dict
+from enum import Enum
 
-from jiuwen.agent.common.enum import TaskStatus
 from jiuwen.core.agent.task.task import Task
+from jiuwen.core.context.agent_context import AgentContext
+from jiuwen.core.context.config import Config
+from jiuwen.core.context.context import Context, ExecutableContext
+from jiuwen.core.context.memory.base import InMemoryState
+
+
+class TaskStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    UNKNOWN = "unknown"
 
 
 class TaskManager:
-    def __init__(self):
-        self._lock = threading.Lock()
+    def __init__(self, agent_context: "AgentContext") -> None:
+        self.agent_context = agent_context
         self._tasks: Dict[str, Task] = {}
 
-    def submit(self, payload: Dict[str, Any], task_id: Optional[str] = None) -> str:
-        with self._lock:
-            task = Task(payload, task_id)
-            self._tasks[task.id] = task
-            return task.id
+    def create_task(self, conversation_id: str) -> Task:
+        """
+        如果 conversation_id 已存在则复用其 Context，
+        否则新建 Context 并返回新的 Task。
+        """
+        task_id = conversation_id  # 直接使用 conversation_id 作为 task_id
 
-    def get(self, task_id: str) -> Optional[Task]:
-        with self._lock:
-            return self._tasks.get(task_id)
+        # 复用已有context
+        if task_id in self._tasks:
+            return self._tasks[task_id]
 
-    def update_status(self, task_id: str, status: TaskStatus) -> None:
-        with self._lock:
-            t = self._tasks.get(task_id)
-            if t:
-                t.status = status
+        # 新建context
+        context = Context(config=Config(),
+                          state=InMemoryState(),
+                          store=self.agent_context.store)
+        executable_context = ExecutableContext(context=context, node_id="agent")
+        task = Task(task_id, executable_context)
+
+        self._tasks[task_id] = task
+        self.agent_context.context_map[task_id] = executable_context
+        return task
+
+    def get_task(self, conversation_id: str) -> Optional[Task]:
+        return self._tasks.get(conversation_id)
+
+    def remove_task(self, conversation_id: str) -> None:
+        task = self._tasks.pop(conversation_id, None)
+        if task is None:
+            return
+        self.agent_context.context_map.pop(conversation_id, None)

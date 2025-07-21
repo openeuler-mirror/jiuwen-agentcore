@@ -5,6 +5,9 @@ from enum import Enum
 
 
 class StatusCode(Enum):
+    # Agent模块 103025~103050
+    AGENT_SUB_TASK_TYPE_ERROR = (103032, "SubTask type {msg} is not supported")
+
     CONTROLLER_INTERRUPTED_ERROR = (10312, "controller interrupted error")
     PROMPT_JSON_SCHEMA_ERROR = (102056, "Invalid json schema, root cause = {error_msg}.")
 

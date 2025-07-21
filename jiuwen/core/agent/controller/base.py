@@ -2,14 +2,17 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 """Controller of Agent"""
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from jiuwen.agent.config.base import AgentConfig
+from jiuwen.core.agent.task.task import Task
 from jiuwen.core.context.context import Context
 
 
 class ControllerOutput(BaseModel):
-    ...
+    is_task: bool = False
 
 
 class ControllerInput(BaseModel):
@@ -23,4 +26,7 @@ class Controller:
         self._context_mgr = context_mgr
 
     def invoke(self, inputs: ControllerInput, context: Context) -> ControllerOutput:
+        pass
+
+    def should_continue(self, output) -> bool:
         pass
