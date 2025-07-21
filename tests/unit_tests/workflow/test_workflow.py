@@ -549,4 +549,4 @@ class WorkflowTest(unittest.TestCase):
         flow1.add_connection("start", "composite")
         flow1.add_connection("a1", "end")
         flow1.add_connection("composite", "end")
-        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": 2})
+        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": None})

@@ -12,6 +12,7 @@ class JiuwenBaseCheckpointSaver(object):
     def __init__(self):
         self.ctx: Context = None
         self.input: Input = None
+        self._recovered = False
 
     def register_context(self, ctx: Context):
         self.ctx = ctx
@@ -19,3 +20,11 @@ class JiuwenBaseCheckpointSaver(object):
     def register_input(self, input: Input):
         self.input = input
 
+    def init_recovered(self):
+        self._recovered = False
+
+    def recovered(self):
+        if not self._recovered:
+            self._recovered = True
+            return False
+        return True

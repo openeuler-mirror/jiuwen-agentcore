@@ -181,6 +181,8 @@ class InteractiveNode4Cp(MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         interaction = Interaction(ctx=context)
+        result1 = interaction.user_input("Please enter any key")
+        print(result1)
         result = interaction.user_input("Please enter any key")
         return result
 

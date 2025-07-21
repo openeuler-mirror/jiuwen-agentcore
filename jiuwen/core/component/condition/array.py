@@ -8,6 +8,8 @@ from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import extract_origin_key, NESTED_PATH_SPLIT
 
 DEFAULT_MAX_LOOP_NUMBER = 1000
+DEFAULT_PATH_INDEX = "index"
+DEFAULT_PATH_ARRAY_LOOP_VAR = "arrLoopVar"
 
 
 class ArrayCondition(Condition):
@@ -16,8 +18,8 @@ class ArrayCondition(Condition):
         super().__init__()
         self._node_id = node_id
         self._arrays = arrays
-        self._index_path = index_path if index_path else node_id + NESTED_PATH_SPLIT + "index"
-        self._arrays_root = array_root if array_root else node_id + NESTED_PATH_SPLIT + "arrLoopVar"
+        self._index_path = index_path if index_path else node_id + NESTED_PATH_SPLIT + DEFAULT_PATH_INDEX
+        self._arrays_root = array_root if array_root else node_id + NESTED_PATH_SPLIT + DEFAULT_PATH_ARRAY_LOOP_VAR
 
     def init(self):
         self._context.state.update_io({self._index_path: -1})

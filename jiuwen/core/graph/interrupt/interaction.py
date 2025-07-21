@@ -13,7 +13,9 @@ from langgraph.types import Interrupt
 from jiuwen.core.common.constants.constant import INTERACTION
 from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
 from jiuwen.core.context.context import Context
+from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.stream.writer import OutputSchema
+
 
 class Interaction(object):
     def __init__(self, ctx: Context):
@@ -21,12 +23,8 @@ class Interaction(object):
         self.idx = 0
         self.node_id = self.ctx.state._node_id
         self.interactive_inputs = None
-        if (
-            (nodes_interactive_inputs := self.ctx.state.get_comp(INTERACTIVE_INPUT))
-            and isinstance(nodes_interactive_inputs, dict)
-            and (interactive_inputs := nodes_interactive_inputs.get(self.node_id))
-            and isinstance(interactive_inputs, list)
-        ):
+        interactive_inputs = self.ctx.state.get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + self.node_id)
+        if isinstance(interactive_inputs, list):
             self.interactive_inputs = interactive_inputs
         self.latest_interactive_inputs = None
         if self.interactive_inputs:
@@ -45,12 +43,16 @@ class Interaction(object):
             output_writer = self.ctx.stream_writer_manager.get_output_writer()
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                asyncio.ensure_future(output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
+                asyncio.ensure_future(
+                    output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
             else:
-                loop.run_until_complete(output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
+                loop.run_until_complete(
+                    output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
 
-        raise GraphInterrupt((Interrupt(value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True, ns=self.node_id)))
-    
+        raise GraphInterrupt((Interrupt(
+            value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True,
+            ns=self.node_id)))
+
     def user_latest_input(self, value: Any) -> Any:
         if res := self.latest_interactive_inputs:
             self.latest_interactive_inputs = None
@@ -59,8 +61,12 @@ class Interaction(object):
             output_writer = self.ctx.stream_writer_manager.get_output_writer()
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                asyncio.ensure_future(output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
+                asyncio.ensure_future(
+                    output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
             else:
-                loop.run_until_complete(output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
+                loop.run_until_complete(
+                    output_writer.write(OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value))))
 
-        raise GraphInterrupt((Interrupt(value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True, ns=self.node_id)))
+        raise GraphInterrupt((Interrupt(
+            value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True,
+            ns=self.node_id)))

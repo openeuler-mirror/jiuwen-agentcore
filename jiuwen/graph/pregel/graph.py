@@ -9,6 +9,7 @@ from langgraph.graph import StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.pregel.loop import PregelLoop
 
+from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
 from jiuwen.core.graph.executable import Executable, Input, Output
@@ -115,23 +116,38 @@ class CompiledGraph(ExecutableGraph):
         self._checkpoint_saver = checkpoint_saver
 
     async def _invoke(self, inputs: Input, context: Context, config: Any = None) -> Output:
-        config = {"configurable": {"thread_id": self._thread_id}} if config is None else config
-        if isinstance(inputs, InteractiveInput):
-            self._checkpoint_saver.register_context(context)
-            self._checkpoint_saver.register_input(inputs)
-            result = await self._compiled_state_graph.ainvoke(None,
+        is_main = False
+        if config is None:
+            is_main = True
+            config = {"configurable": {"thread_id": self._thread_id}}
+
+            if isinstance(inputs, InteractiveInput) and self._checkpoint_saver:
+                self._checkpoint_saver.register_context(context)
+                self._checkpoint_saver.register_input(inputs)
+
+                self._checkpoint_saver.recover(config)
+            else:
+                context.state.set_user_inputs(inputs)
+                context.state.commit()
+        graph_inputs = None if isinstance(inputs, InteractiveInput) else {"source_node_id": []}
+
+        try:
+            result = await self._compiled_state_graph.ainvoke(graph_inputs,
                                                               config=config,
                                                               checkpoint_during=False)
-        else:
-            context.state.set_user_inputs(inputs)
-            context.state.commit()
-            result = await self._compiled_state_graph.ainvoke({"source_node_id": []},
-                                                              config,
-                                                              checkpoint_during=False)
-        if result.get(INTERRUPT) is None:
+        except:
+            if is_main:
+                self._checkpoint_saver.save(config)
+            raise
+
+        if result.get(INTERRUPT) is None and self._checkpoint_saver:
+            executable_context = context.create_executable_context("")
+            executable_context.state.update_comp({INTERACTIVE_INPUT: None})
+            executable_context.state.commit()
             self._checkpoint_saver.delete_thread(self._thread_id)
         else:
-            result = None
+            if is_main:
+                self._checkpoint_saver.save(config)
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
         async for chunk in self._compiled_state_graph.astream({"source_node_id": []}):
