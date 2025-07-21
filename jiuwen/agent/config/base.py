@@ -6,7 +6,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from jiuwen.agent.common.schema import PluginSchema, WorkflowSchema
+from jiuwen.agent.common.schema import WorkflowSchema, PluginSchema
 from jiuwen.agent.common.enum import ControllerType
 
 

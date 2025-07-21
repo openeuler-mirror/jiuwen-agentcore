@@ -7,16 +7,17 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field
 
 
-class PluginSchema(BaseModel):
+class WorkflowSchema(BaseModel):
     id: str = Field(default="")
     name: str = Field(default="")
     description: str = Field(default="")
+    version: str = Field(default="")
     inputs: Dict[str, Any] = Field(default_factory=dict)
     outputs: Dict[str, Any] = Field(default_factory=dict)
     configs: Dict[str, Any] = Field(default_factory=dict)
 
 
-class WorkflowSchema(BaseModel):
+class PluginSchema(BaseModel):
     id: str = Field(default="")
     name: str = Field(default="")
     description: str = Field(default="")

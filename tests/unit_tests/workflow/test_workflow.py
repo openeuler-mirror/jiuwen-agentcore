@@ -21,7 +21,8 @@ from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.graph_state import GraphState
-from jiuwen.core.workflow.base import WorkflowConfig, Workflow
+from jiuwen.core.workflow.base import Workflow
+from jiuwen.core.workflow.workflow_config import WorkflowConfig
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.graph.pregel.graph import PregelGraph
 from test_node import AddTenNode, CommonNode

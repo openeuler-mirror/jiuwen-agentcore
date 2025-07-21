@@ -25,7 +25,8 @@ from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.graph.base import Graph
-from jiuwen.core.workflow.base import WorkflowConfig, Workflow
+from jiuwen.core.workflow.base import Workflow
+from jiuwen.core.workflow.workflow_config import WorkflowConfig
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.graph.pregel.graph import PregelGraph
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode

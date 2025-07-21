@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Union
 
 from pydantic import BaseModel, Field
 
@@ -11,6 +11,7 @@ class SubTask(BaseModel):
     sub_task_type: SubTaskType = Field(default=SubTaskType.UNDEFINED)
     func_name: str = Field(default="")
     func_args: dict = Field(default_factory=dict)
+    result: Optional[str] = Field(default=None)
 
 
 class Task:

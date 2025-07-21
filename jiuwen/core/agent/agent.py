@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 from typing import Any, Iterator, Optional, Dict, List
 
 from jiuwen.agent.config.base import AgentConfig
-from jiuwen.core.context.controller_context_manager.controller_context_manager import ControllerContextMgr
 from jiuwen.core.context.context import Context
+from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
+from jiuwen.core.utils.tool.base import Tool
 from jiuwen.core.workflow.base import Workflow
 
 
@@ -37,11 +38,11 @@ class Agent(ABC):
         """
         pass
 
-    def register_workflows(self, workflows: List[Workflow]):
+    def bind_workflows(self, workflows: List[Workflow]):
         self._controller_context_manager.workflow_mgr.add_workflows(workflows)
 
-    def register_tools(self, tools):
-        pass
+    def bind_tools(self, tools: List[Tool]):
+        self._controller_context_manager.workflow_mgr.add_tools(tools)
 
     def _init_controller(self) -> "Controller | None":
         """
