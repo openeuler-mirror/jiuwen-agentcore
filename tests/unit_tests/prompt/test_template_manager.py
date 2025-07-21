@@ -58,3 +58,17 @@ class TestTemplateManager(unittest.TestCase):
                 BaseMessage(**{"role": "user", "content": "[{'role': 'user', 'content': '你是谁'}]"})
             ]
         )
+
+    def test_template_to_messages(self):
+        template = Template(
+            name="test_template_manager_format",
+            content="`#system#`你是一个精通{{domain}}领域的问答助手`#user#`{{memory}}")
+
+        golden_messages = [
+            BaseMessage(role='system', content='你是一个精通{{domain}}领域的问答助手'),
+            BaseMessage(role='user', content='{{memory}}')]
+
+        self.assertEqual(template.to_messages(), golden_messages)
+
+        template2 = Template(content=golden_messages)
+        self.assertEqual(template2.to_messages(), golden_messages)

@@ -29,7 +29,7 @@ class Template(BaseModel):
             self.content = []
             return messages
         if isinstance(self.content, str):
-            self.content = template_to_messages(self._content)
+            self.content = template_to_messages(self.content)
 
         for msg in self.content:
             if isinstance(msg, BaseMessage):
