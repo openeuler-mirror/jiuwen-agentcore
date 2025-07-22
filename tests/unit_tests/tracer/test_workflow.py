@@ -4,7 +4,13 @@ import sys
 import types
 from unittest.mock import Mock
 
+from jiuwen.core.component.condition.array import ArrayCondition
+from jiuwen.core.component.loop_callback.intermediate_loop_var import IntermediateLoopVarCallback
+from jiuwen.core.component.loop_callback.output import OutputCallback
+from jiuwen.core.component.loop_comp import LoopGroup, LoopComponent
+from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
+from tests.unit_tests.workflow.test_node import CommonNode, AddTenNode
 
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
@@ -437,3 +443,62 @@ class WorkflowTest(unittest.TestCase):
 
         self.loop.run_until_complete(stream_workflow())
         record_tracer_info(tracer_chunks, "test_nested_parallel_stream_workflow_with_tracer.json")
+
+    def test_workflow_with_loop(self):
+        """
+        s->a->loop(1->2->3)->b->e
+        """
+        tracer_chunks = []
+
+        async def stream_workflow():
+            flow = create_flow()
+            flow.set_start_comp("s", MockStartNode("s"))
+            flow.set_end_comp("e", MockEndNode("e"),
+                              inputs_schema={"array_result": "${b.array_result}", "user_var": "${b.user_var}"})
+            flow.add_workflow_comp("a", CommonNode("a"),
+                                   inputs_schema={"array": "${input_array}"})
+            flow.add_workflow_comp("b", CommonNode("b"),
+                                   inputs_schema={"array_result": "${l.results}", "user_var": "${l.user_var}"})
+
+            # create  loop: (1->2->3)
+            loop_group = LoopGroup(WorkflowConfig(), PregelGraph())
+            loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
+            loop_group.add_workflow_comp("2", AddTenNode("2"),
+                                         inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
+            set_variable_component = SetVariableComponent("3",
+                                                          {"${l.intermediateLoopVar.user_var}": "${2.result}"})
+            loop_group.add_workflow_comp("3", set_variable_component)
+            loop_group.start_comp("1")
+            loop_group.end_comp("3")
+            loop_group.add_connection("1", "2")
+            loop_group.add_connection("2", "3")
+            output_callback = OutputCallback("l",
+                                             {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
+            intermediate_callback = IntermediateLoopVarCallback("l",
+                                                                {"user_var": "${input_number}"})
+
+            loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
+                                 callbacks=[output_callback, intermediate_callback],
+                                 set_variable_components=[set_variable_component])
+
+            flow.add_workflow_comp("l", loop)
+
+            # s->a->(1->2->3)->b->e
+            flow.add_connection("s", "a")
+            flow.add_connection("a", "l")
+            flow.add_connection("l", "b")
+            flow.add_connection("b", "e")
+
+            async for chunk in flow.stream({"input_array": [1, 2, 3], "input_number": 1}, create_context_with_tracer()):
+                if isinstance(chunk, TraceSchema):
+                    print(f"stream chunk: {chunk}")
+                    tracer_chunks.append(chunk)
+
+        self.loop.run_until_complete(stream_workflow())
+        record_tracer_info(tracer_chunks, "test_workflow_with_loop.json")
+
+        # result = self.invoke_workflow({"input_array": [1, 2, 3], "input_number": 1}, create_context_with_tracer(), flow)
+        #     assert result == {"array_result": [11, 12, 13], "user_var": 31}
+        #
+        #     result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, create_context_with_tracer(), flow)
+        #     assert result == {"array_result": [14, 15], "user_var": 22}
