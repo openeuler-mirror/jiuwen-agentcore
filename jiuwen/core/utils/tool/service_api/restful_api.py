@@ -108,7 +108,7 @@ class RestfulApi(Tool):
         """get query params from input"""
         query_params = {}
         for param in self.params:
-            if param.method == "Query" and (inputs.get(param.name) or inputs.get(param.name) is False):
+            if inputs.get(param.name) or inputs.get(param.name) is False:
                 query_params[param.name] = str(inputs.get(param.name))
                 inputs.pop(param.name, None)
         return query_params
@@ -131,7 +131,7 @@ class RestfulApi(Tool):
             response_data = _data_of(
                 requests.request(
                     self.method, request_params.ip_address_url, headers=request_params.headers,
-                    verify=False, stream=True, params=request_params.query_params_in_inputs,
+                    verify=False, stream=False, params=request_params.query_params_in_inputs,
                     timeout=constant.REQUEST_TIMEOUT,
                     **request_params.request_arg
                 )
