@@ -3,14 +3,14 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from typing import AsyncIterator
 
-from jiuwen.core.component.base import WorkflowComponent, ExecGraphComponent
+from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.workflow.base import Workflow
 
 
-class ExecWorkflowComponent(WorkflowComponent, Executable, ExecGraphComponent):
+class ExecWorkflowComponent(WorkflowComponent, Executable):
     def __init__(self, node_id: str, sub_workflow: Workflow):
         super().__init__()
         self.node_id = node_id
@@ -33,3 +33,6 @@ class ExecWorkflowComponent(WorkflowComponent, Executable, ExecGraphComponent):
 
     def to_executable(self) -> Executable:
         return self
+
+    def graph_invoker(self) -> bool:
+        return True

@@ -5,7 +5,6 @@ from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.component.base import InnerComponent, ExecGraphComponent
 from jiuwen.core.component.condition.condition import INDEX
 from jiuwen.core.component.loop_callback.loop_id import LOOP_ID
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
@@ -23,10 +22,7 @@ class Vertex:
         self._context: ExecutableContext = None
 
     def init(self, context: Context) -> bool:
-        if isinstance(self._executable, InnerComponent):
-            self._context = context
-        else:
-            self._context = context.create_executable_context(self._node_id)
+        self._context = context.create_executable_context(self._node_id)
         return True
 
     async def __call__(self, state: GraphState, config: Any = None) -> Output:
@@ -35,7 +31,7 @@ class Vertex:
         inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
-        if isinstance(self._executable, ExecGraphComponent):
+        if self._executable.graph_invoker():
             inputs = {INPUTS_KEY: inputs, CONFIG_KEY: config}
 
         try:
@@ -76,7 +72,7 @@ class Vertex:
         pass
 
     async def __trace_inputs__(self, inputs: Optional[dict]) -> None:
-        if isinstance(self._executable, InnerComponent):
+        if self._executable.skip_trace():
             return
         # TODO 组件信息
         await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", invoke_id=self._context.executable_id,
@@ -91,7 +87,7 @@ class Vertex:
             self._context.tracer.register_workflow_span_manager(self._context.executable_id)
 
     async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
-        if isinstance(self._executable, InnerComponent):
+        if self._executable.skip_trace():
             return
         await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", invoke_id=self._context.executable_id,
                                            parent_node_id=self._context.parent_id,
@@ -99,6 +95,7 @@ class Vertex:
         self._context.state.update_trace(self._context.executable_id,
                                          self._context.tracer.get_workflow_span(self._context.executable_id,
                                                                                 self._context.parent_id))
+
 
     def _get_component_metadata(self) -> dict:
         component_metadata = {"component_type": self._context.executable_id}

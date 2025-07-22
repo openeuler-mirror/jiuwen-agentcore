@@ -46,5 +46,10 @@ class Executable(Generic[Input, Output], ABC):
             message=json.dumps(message, ensure_ascii=False)
         )
 
+    def skip_trace(self) -> bool:
+        return False
+
+    def graph_invoker(self) -> bool:
+        return False
 
 GeneralExecutor = Executable[dict[str, Any], dict[str, Any]]
