@@ -145,6 +145,7 @@ class LLMExecutable(Executable):
             logger.info("[%s] model inputs %s", self._context.executable_id, model_inputs)
             llm_response = await self._llm.ainvoke(model_inputs)
             response = llm_response.content
+            self._context.state.update({"response": response})
             logger.info("[%s] model outputs %s", self._context.executable_id, response)
             return self._create_output(response)
         except JiuWenBaseException:

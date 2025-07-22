@@ -7,7 +7,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 from jiuwen.agent.common.enum import ReActStatus
-from jiuwen.core.agent.task.task import SubTask
+from jiuwen.core.agent.task.sub_task import SubTask
 from jiuwen.core.utils.llm.messages import AIMessage
 
 

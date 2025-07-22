@@ -2,7 +2,7 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 """Handler of Agent"""
-from typing import Dict, Callable, Any
+from typing import Dict, Callable, Any, Awaitable
 
 from pydantic import BaseModel, Field
 
@@ -21,28 +21,28 @@ class AgentHandlerInputs(BaseModel):
 
 class AgentHandler:
     def __init__(self, agent_config: AgentConfig):
-        self._function_map: Dict[SubTaskType, Callable[[AgentHandlerInputs], dict]] = {
+        self._function_map: Dict[SubTaskType, Callable[[AgentHandlerInputs], Awaitable[dict]]] = {
             SubTaskType.WORKFLOW: self.invoke_workflow,
             SubTaskType.PLUGIN: self.invoke_plugin
         }
         self._config = agent_config
 
-    def invoke(self, sub_task_type: SubTaskType, inputs: AgentHandlerInputs):
+    async def invoke(self, sub_task_type: SubTaskType, inputs: AgentHandlerInputs):
         handler = self._function_map.get(sub_task_type)
         if not handler:
             raise JiuWenBaseException()
-        return handler(inputs)
+        return await handler(inputs)
 
-    def invoke_workflow(self, inputs: AgentHandlerInputs):
+    async def invoke_workflow(self, inputs: AgentHandlerInputs):
         return dict()
 
-    def invoke_plugin(self, inputs: AgentHandlerInputs):
+    async def invoke_plugin(self, inputs: AgentHandlerInputs):
         return dict()
 
-    def invoke_llm(self, inputs: AgentHandlerInputs):
+    async def invoke_llm(self, inputs: AgentHandlerInputs):
         return dict()
 
-    def send_message(self, inputs: AgentHandlerInputs):
+    async def send_message(self, inputs: AgentHandlerInputs):
         return dict()
 
 
@@ -50,31 +50,29 @@ class AgentHandlerImpl(AgentHandler):
     def __init__(self, agent_config: AgentConfig):
         super().__init__(agent_config)
 
-    def invoke(self, sub_task_type: SubTaskType, inputs: AgentHandlerInputs):
+    async def invoke(self, sub_task_type: SubTaskType, inputs: AgentHandlerInputs):
         handler = self._function_map.get(sub_task_type)
         if not handler:
             raise JiuWenBaseException()
-        return handler(inputs)
+        return await handler(inputs)
 
-    def invoke_workflow(self, inputs: AgentHandlerInputs):
+    async def invoke_workflow(self, inputs: AgentHandlerInputs):
         context = inputs.context
-        query = inputs.query
         workflow_name = inputs.name
 
-        context_manager = context._controller_context_manager
+        context_manager = context.controller_context_manager
         workflow_manager = context_manager.workflow_mgr
         workflow_metadata = self._search_workflow_metadata_by_workflow_name(workflow_name)
         workflow = workflow_manager.find_workflow_by_id_and_version(workflow_metadata.id, workflow_metadata.version)
-        workflow_inputs = dict(query=query, userFields=inputs.arguments)
-        workflow_result = workflow.invoke(workflow_inputs, context)
+        workflow_result = await workflow.invoke(inputs.arguments, context)
         return workflow_result
 
-    def invoke_plugin(self, inputs: AgentHandlerInputs):
+    async def invoke_plugin(self, inputs: AgentHandlerInputs):
         context = inputs.context
         plugin_name = inputs.name
         plugin_args = inputs.arguments
 
-        context_manager = context._controller_context_manager
+        context_manager = context.controller_context_manager
         workflow_manager = context_manager.workflow_mgr
         plugin = workflow_manager.find_tool_by_name(plugin_name)
         plugin_result = plugin.invoke(plugin_args)

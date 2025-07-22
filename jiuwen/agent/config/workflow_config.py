@@ -17,3 +17,7 @@ class WorkflowAgentConfig(AgentConfig):
     global_variables: List[dict] = Field(default_factory=list)
     # 全局参数模板（可选）
     global_params: Dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def is_single_workflow(self) -> bool:
+        return len(self.workflows) == 1

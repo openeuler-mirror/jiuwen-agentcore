@@ -57,6 +57,10 @@ class Context(ABC):
     def callback_manager(self) -> CallbackManager:
         return self._callback_manager
 
+    @property
+    def controller_context_manager(self):
+        return self._controller_context_manager
+
     def create_executable_context(self, node_id: str) -> Self:
         context = ExecutableContext(self, node_id)
         context.set_stream_writer_manager(self._stream_writer_manager)

@@ -13,7 +13,7 @@ from jiuwen.agent.common.schema import WorkflowSchema, PluginSchema
 from jiuwen.core.agent.controller.base import ControllerOutput, ControllerInput, Controller
 from jiuwen.core.agent.handler.base import AgentHandler
 from jiuwen.agent.config.base import AgentConfig
-from jiuwen.core.agent.task.task import SubTask
+from jiuwen.core.agent.task.sub_task import SubTask
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.context.context import Context
