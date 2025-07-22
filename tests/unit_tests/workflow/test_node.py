@@ -3,8 +3,10 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from typing import AsyncIterator, Iterator
 
+from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent
-from jiuwen.core.context.context import Context
+from jiuwen.core.context.context import Context, ExecutableContext
+from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.executable import Executable, Input, Output
 
 

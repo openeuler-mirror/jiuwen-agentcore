@@ -4,8 +4,12 @@
 from abc import ABC, abstractmethod
 from typing import Callable
 
+from jiuwen.core.context.context import ContextSetter
 
-class Condition(ABC):
+INDEX = "index"
+
+
+class Condition(ContextSetter, ABC):
 
     @abstractmethod
     def init(self):
@@ -18,6 +22,7 @@ class Condition(ABC):
 
 class FuncCondition(Condition):
     def __init__(self, func: Callable[[], bool]):
+        super().__init__()
         self._func = func
 
     def init(self):

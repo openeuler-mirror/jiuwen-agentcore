@@ -3,8 +3,10 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from abc import ABC, abstractmethod
 
+from jiuwen.core.context.context import ContextSetter
 
-class LoopCallback(ABC):
+
+class LoopCallback(ContextSetter, ABC):
 
     @abstractmethod
     def first_in_loop(self):

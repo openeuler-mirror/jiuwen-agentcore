@@ -25,6 +25,13 @@ class InMemoryStateLike(StateLike):
             raise JiuWenBaseException(1, "can not update state by none node_id")
         update_dict(data, self._state)
 
+    def get_state(self) -> dict:
+        return deepcopy(self._state)
+
+    def set_state(self, state: dict) -> None:
+        if state:
+            self._state = state
+
 
 class InMemoryCommitState(CommitState):
     def __init__(self):
@@ -44,13 +51,6 @@ class InMemoryCommitState(CommitState):
                 self._state.update(key, update)
         self._updates.clear()
 
-    def get_updates(self, node_id: str) -> list[dict]:
-        if node_id is None:
-            return [{"node_id": deepcopy(node), "updates": deepcopy(update)} for node, update in self._updates.items()]
-        if node_id not in self._updates:
-            return []
-        return [{"node_id": node_id, "updates": deepcopy(self._updates[node_id])}]
-
     def rollback(self, node_id: str) -> None:
         self._updates[node_id] = []
 
@@ -60,11 +60,23 @@ class InMemoryCommitState(CommitState):
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
         return self._state.get(key)
 
+    def get_updates(self) -> dict:
+        return self._updates
+
+    def set_updates(self, updates: dict):
+        if updates:
+            self._updates = updates
+
+    def get_state(self) -> dict:
+        return self._state.get_state()
+
+    def set_state(self, state: dict) -> None:
+        self._state.set_state(state)
+
+
 class InMemoryState(State):
     def __init__(self):
         super().__init__(io_state=InMemoryCommitState(),
                          global_state=InMemoryCommitState(),
                          trace_state=dict(),
                          comp_state=InMemoryCommitState())
-
-

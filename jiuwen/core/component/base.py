@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field
 
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Executable
+
+
 @dataclass
 class WorkflowComponentMetadata:
     node_id: str
@@ -65,3 +67,11 @@ class ComponentAbility(Enum):
     @property
     def desc(self) -> str:
         return self._desc
+
+
+class InnerComponent(ABC):
+    pass
+
+
+class ExecGraphComponent(ABC):
+    pass

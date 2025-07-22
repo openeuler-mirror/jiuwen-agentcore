@@ -26,6 +26,14 @@ class StateLike(ReadableStateLike):
     def update(self, node_id: str, data: dict) -> None:
         pass
 
+    @abstractmethod
+    def get_state(self) -> dict:
+        pass
+
+    @abstractmethod
+    def set_state(self, state: dict) -> None:
+        pass
+
 
 class CommitState(StateLike):
     @abstractmethod
@@ -37,8 +45,20 @@ class CommitState(StateLike):
         pass
 
     @abstractmethod
-    def get_updates(self, node_id: str) -> list[dict]:
+    def get_updates(self) -> dict:
         pass
+
+    @abstractmethod
+    def set_updates(self, updates: dict):
+        pass
+
+
+IO_STATE_KEY = "io_state"
+IO_STATE_UPDATES_KEY = "io_state_updates"
+GLOBAL_STATE_KEY = "global_state"
+GLOBAL_STATE_UPDATES_KEY = "global_state_updates"
+COMP_STATE_KEY = "comp_state"
+COMP_STATE_UPDATES_KEY = "comp_state_updates"
 
 
 class State(ABC):
@@ -128,9 +148,26 @@ class State(ABC):
         self._io_state.rollback(self._node_id)
         self._global_state.rollback(self._node_id)
 
+    def get_state(self) -> dict:
+        return {
+            IO_STATE_KEY: self._io_state.get_state(),
+            GLOBAL_STATE_KEY: self._global_state.get_state(),
+            COMP_STATE_KEY: self._comp_state.get_state(),
+        }
+
+    def set_state(self, state: dict) -> None:
+        self._io_state.set_state(state.get(IO_STATE_KEY))
+        self._global_state.set_state(state.get(GLOBAL_STATE_KEY))
+        self._comp_state.set_state(state.get(COMP_STATE_KEY))
+
     def get_updates(self) -> dict:
         return {
-            "io": self._io_state.get_updates(self._node_id),
-            "global": self._global_state.get_updates(self._node_id),
-            "comp": self._comp_state.get_updates(self._node_id)
+            IO_STATE_UPDATES_KEY: self._io_state.get_updates(),
+            GLOBAL_STATE_UPDATES_KEY: self._global_state.get_updates(),
+            COMP_STATE_UPDATES_KEY: self._comp_state.get_updates(),
         }
+
+    def set_updates(self, updates: dict) -> None:
+        self._io_state.set_updates(updates.get(IO_STATE_UPDATES_KEY))
+        self._global_state.set_updates(updates.get(GLOBAL_STATE_UPDATES_KEY))
+        self._comp_state.set_updates(updates.get(COMP_STATE_UPDATES_KEY))
