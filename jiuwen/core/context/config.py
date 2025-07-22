@@ -12,6 +12,7 @@ class MetadataLike(TypedDict):
     name: str
     event: str
 
+
 class CompIOConfig(ABC):
     def __init__(self, inputs_schema: dict = None,
                  outputs_schema: dict = None,
@@ -21,6 +22,7 @@ class CompIOConfig(ABC):
         self.outputs_schema = outputs_schema
         self.inputs_transformer = inputs_transformer
         self.outputs_transformer = outputs_transformer
+
 
 class Config(ABC):
     """
@@ -37,7 +39,11 @@ class Config(ABC):
         self.__load_envs__()
 
     def set_workflow_config(self, workflow_config: WorkflowConfig) -> None:
-        self._workflow_config = workflow_config
+        if self._workflow_config is None:
+            self._workflow_config = workflow_config
+        else:
+            self._workflow_config.comp_configs.update(workflow_config.comp_configs)
+            self._workflow_config.stream_edges.update(workflow_config.stream_edges)
 
     def set_comp_io_config(self, node_id: str, comp_io_config: CompIOConfig) -> None:
         """
@@ -113,7 +119,8 @@ class Config(ABC):
         :param target_node_id: target node id
         :return: true if is stream edge
         """
-        return (target_node_id in source_node_id) and (source_node_id in self._workflow_config.stream_edges[target_node_id])
+        return (target_node_id in source_node_id) and (
+                    source_node_id in self._workflow_config.stream_edges[target_node_id])
 
     def set_envs(self, envs: dict[str, str]) -> None:
         """

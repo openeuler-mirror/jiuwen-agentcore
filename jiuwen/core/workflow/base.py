@@ -146,10 +146,10 @@ class Workflow(BaseWorkFlow):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         logger.info("begin to invoke, input=%s", inputs)
         chunks = []
-        async for chunk in self.stream(inputs, context):
+        async for chunk in self.stream(inputs, context, stream_modes=[BaseStreamMode.OUTPUT]):
             chunks.append(chunk)
 
-        results = chunks[-1].model_dump() if (len(chunks) > 1 and isinstance(chunks[-1], OutputSchema) and
+        results = chunks[-1].model_dump() if (len(chunks) >= 1 and isinstance(chunks[-1], OutputSchema) and
                                               chunks[-1].type == INTERACTION) else context.state.get_outputs(
             self._end_comp_id)
         logger.info("end to invoke, results=%s", results)

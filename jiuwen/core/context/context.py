@@ -1,6 +1,7 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
+import uuid
 from abc import ABC
 from typing import Any, Self
 
@@ -13,7 +14,7 @@ from jiuwen.core.tracer.tracer import Tracer
 
 
 class Context(ABC):
-    def __init__(self, config: Config, state: State, store: Store = None):
+    def __init__(self, config: Config, state: State, store: Store = None, session_id: str = None):
         self._config = config
         self._state = state
         self._store = store
@@ -21,6 +22,7 @@ class Context(ABC):
         self._callback_manager = CallbackManager()
         self._stream_writer_manager: StreamWriterManager = None
         self._controller_context_manager = None
+        self._session_id = session_id if session_id else uuid.uuid4().hex
 
     def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager):
         if self._stream_writer_manager is not None:
@@ -60,6 +62,10 @@ class Context(ABC):
     @property
     def controller_context_manager(self):
         return self._controller_context_manager
+
+    @property
+    def session_id(self) -> str:
+        return self._session_id
 
     def create_executable_context(self, node_id: str) -> Self:
         context = ExecutableContext(self, node_id)

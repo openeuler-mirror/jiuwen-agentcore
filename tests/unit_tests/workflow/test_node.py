@@ -42,10 +42,6 @@ class AddTenNode(Executable, WorkflowComponent):
         self.node_id = node_id
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        if isinstance(context, ExecutableContext):
-            logger.debug(
-                f"parent id: {context.parent_id}, index: {context.state.get(context.parent_id + NESTED_PATH_SPLIT + 'index')}"
-            )
         return {"result": inputs["source"] + 10}
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:

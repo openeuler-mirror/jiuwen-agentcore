@@ -5,7 +5,7 @@ from typing import Iterator, AsyncIterator, Self, Union, Callable
 
 from langgraph.constants import END, START
 
-from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.component.base import WorkflowComponent, InnerComponent, ExecGraphComponent
 from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
 from jiuwen.core.component.condition.expression import ExpressionCondition
@@ -19,7 +19,7 @@ from jiuwen.core.graph.executable import Output, Input, Executable
 from jiuwen.core.workflow.base import BaseWorkFlow
 
 
-class EmptyExecutable(Executable):
+class EmptyExecutable(Executable, InnerComponent):
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
@@ -36,7 +36,7 @@ class EmptyExecutable(Executable):
         return
 
 
-class LoopGroup(BaseWorkFlow, Executable):
+class LoopGroup(BaseWorkFlow, Executable, InnerComponent, ExecGraphComponent):
 
     def __init__(self, workflow_config: WorkflowConfig, new_graph: Graph):
         super().__init__(workflow_config, new_graph)
@@ -78,7 +78,7 @@ CONDITION_NODE_ID = "condition"
 BODY_NODE_ID = "body"
 
 
-class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable):
+class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable, InnerComponent, ExecGraphComponent):
 
     def __init__(self, node_id: str, body: Executable, new_graph: Graph,
                  condition: Union[str, Callable[[], bool], Condition] = None, context_root: str = None,
@@ -180,7 +180,7 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for context_setter in self._context_setters:
-            context_setter.set_context(context)
+            context_setter.set_context(context.create_executable_context(self._node_id))
 
         compiled = self._graph.compile(self._context)
         if isinstance(self._body, LoopGroup):
