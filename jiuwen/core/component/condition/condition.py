@@ -6,6 +6,8 @@ from typing import Callable
 
 from jiuwen.core.context.context import ContextSetter
 
+INDEX = "index"
+
 
 class Condition(ContextSetter, ABC):
 

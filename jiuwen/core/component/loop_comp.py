@@ -7,9 +7,10 @@ from langgraph.constants import END, START
 
 from jiuwen.core.component.base import WorkflowComponent, InnerComponent, ExecGraphComponent
 from jiuwen.core.component.break_comp import BreakComponent, LoopController
-from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition
+from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition, INDEX
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
+from jiuwen.core.component.loop_callback.loop_id import LoopIdCallback
 from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.context.config import WorkflowConfig
 from jiuwen.core.context.context import Context, ContextSetter
@@ -81,7 +82,7 @@ BODY_NODE_ID = "body"
 class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable, InnerComponent, ExecGraphComponent):
 
     def __init__(self, node_id: str, body: Executable, new_graph: Graph,
-                 condition: Union[str, Callable[[], bool], Condition] = None, context_root: str = None,
+                 condition: Union[str, Callable[[], bool], Condition] = None,
                  break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None,
                  set_variable_components: list[SetVariableComponent] = None):
         ContextSetter.__init__(self)
@@ -97,17 +98,17 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
             self._condition = FuncCondition(condition)
         elif isinstance(condition, str):
             self._condition = ExpressionCondition(condition)
-
-        if context_root is None:
-            context_root = node_id
-        self._context_root = context_root
+        self._context_root = node_id
 
         if break_nodes:
             for break_node in break_nodes:
                 break_node.set_controller(self)
 
+        loop_id_callback = LoopIdCallback(node_id)
+
         self._callbacks: list[LoopCallback] = []
 
+        self.register_callback(loop_id_callback)
         if callbacks:
             for callback in callbacks:
                 self.register_callback(callback)
@@ -124,9 +125,10 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
         self._context_setters.extend(set_variable_components)
 
     def init(self):
-        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
-        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
+        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
+        self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
         self._condition.init()
+        self._context.state.commit()
 
     def to_executable(self) -> Executable:
         return self
@@ -140,7 +142,7 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
         first_in_loop = self.first_in_loop()
         if first_in_loop:
-            self._condition.init()
+            self.init()
         continue_loop = False if self.is_broken() else self._condition()
 
         for callback in self._callbacks:
@@ -154,29 +156,29 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
                 callback.out_loop()
 
         if continue_loop:
+            self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: self._context.state.get_io(
+                self._context_root + NESTED_PATH_SPLIT + INDEX) + 1})
             return in_loop
 
+        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
         self.init()
         return out_loop
 
     def first_in_loop(self) -> bool:
-        _first_in_loop = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP)
-        if _first_in_loop is None:
-            _first_in_loop = True
-
-        if _first_in_loop:
-            self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
-            self._context.state.update({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: False})
-        return _first_in_loop
+        self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
+        index = self._context.state.get_io(self._context_root + NESTED_PATH_SPLIT + INDEX)
+        if index is None or index == -1:
+            return True
+        return False
 
     def is_broken(self) -> bool:
-        _is_broken = self._context.state.get(self._context_root + NESTED_PATH_SPLIT + BROKEN)
+        _is_broken = self._context.state.get_comp(self._context_root + NESTED_PATH_SPLIT + BROKEN)
         if isinstance(_is_broken, bool):
             return _is_broken
         return False
 
     def break_loop(self):
-        self._context.state.update({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
+        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for context_setter in self._context_setters:
