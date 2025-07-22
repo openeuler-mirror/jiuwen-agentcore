@@ -18,36 +18,33 @@ from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.interrupt.interactive_input import InteractiveInput
-from jiuwen.graph.checkpoint.base import JiuwenBaseCheckpointSaver
+from jiuwen.graph.checkpoint.base import BaseCheckpointer
 
 STATE_KEY = "state"
 STATE_UPDATES_KEY = "state_updates"
 
 
-class JiuwenInMemoryCheckpointSaver(InMemorySaver, JiuwenBaseCheckpointSaver):
-    # (thread ID, checkpoint ns, checkpoint ID, io_state KEY) -> (value type, value dumped bytes)
-    state_blobs: dict[
-        tuple[
-            str, str, str, str
-        ],
-        tuple[str, bytes],
-    ] = {}
-
-    # (thread ID, checkpoint ns, checkpoint ID, io_state_updates KEY) -> (value type, value dumped bytes)
-    state_updates_blobs: dict[
-        tuple[
-            str, str, str, str
-        ],
-        tuple[str, bytes]
-    ] = {}
+class InMemoryCheckpointer(InMemorySaver, BaseCheckpointer):
 
     def __init__(self):
         InMemorySaver.__init__(self)
-        JiuwenBaseCheckpointSaver.__init__(self)
-        self.io_state_blobs = {}
-        self.global_state_blobs = {}
-        self.io_state_updates_blobs = {}
-        self.global_state_updates_blobs = {}
+        BaseCheckpointer.__init__(self)
+
+        # (thread ID, checkpoint ns, checkpoint ID, io_state KEY) -> (value type, value dumped bytes)
+        self.state_blobs: dict[
+            tuple[
+                str, str, str, str
+            ],
+            tuple[str, bytes],
+        ] = {}
+
+        # (thread ID, checkpoint ns, checkpoint ID, io_state_updates KEY) -> (value type, value dumped bytes)
+        self.state_updates_blobs: dict[
+            tuple[
+                str, str, str, str
+            ],
+            tuple[str, bytes]
+        ] = {}
 
     def recover(self, config: RunnableConfig):
         thread_id: str = config["configurable"]["thread_id"]

@@ -16,15 +16,14 @@ from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.graph.graph_state import GraphState
 from jiuwen.core.graph.interrupt.interactive_input import InteractiveInput
 from jiuwen.core.graph.vertex import Vertex
-from jiuwen.graph.checkpoint.memory import JiuwenInMemoryCheckpointSaver
+from jiuwen.graph.checkpoint.memory import InMemoryCheckpointer
 
 
 class AfterProcessor:
     def __init__(self, after_tick: Callable[..., Any]):
         self._after_tick = after_tick
 
-    def after_tick(self, loop: PregelLoop, thread_id: str) -> None:
-        context = PregelGraph.context_mapping[thread_id]
+    def after_tick(self, loop: PregelLoop, context: Context) -> None:
         context.state.commit()
         return self._after_tick(loop)
 
@@ -33,15 +32,14 @@ after_processor: AfterProcessor = AfterProcessor(PregelLoop.after_tick)
 
 
 def after_tick(self) -> None:
-    thread_id = self.config["configurable"]["thread_id"]
-    return after_processor.after_tick(self, thread_id)
+    context = self.checkpointer.ctx
+    return after_processor.after_tick(self, context)
 
 
 PregelLoop.after_tick = after_tick
 
 
 class PregelGraph(Graph):
-    context_mapping: dict[str, Context] = {}
 
     def __init__(self):
         self.pregel: StateGraph = StateGraph(GraphState)
@@ -49,7 +47,7 @@ class PregelGraph(Graph):
         self.edges: list[Union[str, list[str]], str] = []
         self.waits: set[str] = set()
         self.nodes: list[Vertex] = []
-        self.thread_id = None
+        self._session_id = None
         self.checkpoint_saver = None
 
     def start_node(self, node_id: str) -> Self:
@@ -81,13 +79,12 @@ class PregelGraph(Graph):
             node.init(context)
         if self.compiledStateGraph is None:
             self._pre_compile()
-            self.thread_id = str(uuid.uuid4())
-            self.checkpoint_saver = JiuwenInMemoryCheckpointSaver()
+            self._session_id = str(uuid.uuid4())
+            self.checkpoint_saver = InMemoryCheckpointer()
             self.compiledStateGraph = self.pregel.compile(checkpointer=self.checkpoint_saver)
 
-        self.context_mapping[self.thread_id] = context
         self.checkpoint_saver.register_context(context)
-        return CompiledGraph(self.compiledStateGraph, self.thread_id, self.checkpoint_saver)
+        return CompiledGraph(self.compiledStateGraph, self._session_id, self.checkpoint_saver)
 
     def _pre_compile(self):
         edges: list[Union[str, list[str]], str] = []
@@ -109,17 +106,17 @@ class PregelGraph(Graph):
 
 
 class CompiledGraph(ExecutableGraph):
-    def __init__(self, compiled_state_graph: CompiledStateGraph, thread_id: str,
-                 checkpoint_saver: JiuwenInMemoryCheckpointSaver) -> None:
+    def __init__(self, compiled_state_graph: CompiledStateGraph, session_id: str,
+                 checkpoint_saver: InMemoryCheckpointer) -> None:
         self._compiled_state_graph = compiled_state_graph
-        self._thread_id = thread_id
+        self._session_id = session_id
         self._checkpoint_saver = checkpoint_saver
 
     async def _invoke(self, inputs: Input, context: Context, config: Any = None) -> Output:
         is_main = False
         if config is None:
             is_main = True
-            config = {"configurable": {"thread_id": self._thread_id}}
+            config = {"configurable": {"thread_id": self._session_id}}
 
             if isinstance(inputs, InteractiveInput) and self._checkpoint_saver:
                 self._checkpoint_saver.register_context(context)
@@ -144,7 +141,7 @@ class CompiledGraph(ExecutableGraph):
             executable_context = context.create_executable_context("")
             executable_context.state.update_comp({INTERACTIVE_INPUT: None})
             executable_context.state.commit()
-            self._checkpoint_saver.delete_thread(self._thread_id)
+            self._checkpoint_saver.delete_thread(self._session_id)
         else:
             if is_main:
                 self._checkpoint_saver.save(config)

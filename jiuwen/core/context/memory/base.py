@@ -61,7 +61,7 @@ class InMemoryCommitState(CommitState):
         return self._state.get(key)
 
     def get_updates(self) -> dict:
-        return deepcopy(self._updates)
+        return self._updates
 
     def set_updates(self, updates: dict):
         if updates:

@@ -7,7 +7,7 @@ from __future__ import annotations
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Input
 
-class JiuwenBaseCheckpointSaver(object):
+class BaseCheckpointer(object):
 
     def __init__(self):
         self.ctx: Context = None
