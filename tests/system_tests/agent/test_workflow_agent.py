@@ -1,57 +1,36 @@
-"""
-端到端（End-to-End）测试：最小可运行的「旅行助手」工作流。
-
-工作流链路：
-    用户问句
-        ↓  意图识别（IntentDetection）
-    意图 ∈ {旅游, 天气}
-        ↓  大模型（LLM）
-    {地点, 日期}
-        ↓  插件调用（Plugin）
-    最终自然语言回答
-
-本测试通过参数化一次性覆盖 **两条意图分支**。
-"""
-from __future__ import annotations
-
-import asyncio
+# tests/test_workflow_agent_invoke_real.py
 import unittest
+
+import pytest
 from unittest.mock import patch
 
+from jiuwen.agent.common.schema import WorkflowSchema
+from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.common.configs.model_config import ModelConfig
-from jiuwen.core.component.intent_detection_comp import (
-    IntentDetectionComponent,
-    IntentDetectionConfig,
-)
-from jiuwen.core.component.llm_comp import LLMCompConfig, LLMComponent
-from jiuwen.core.component.questioner_comp import (
-    FieldInfo,
-    QuestionerComponent,
-    QuestionerConfig,
-)
+from jiuwen.core.component.intent_detection_comp import IntentDetectionComponent, IntentDetectionConfig
+from jiuwen.core.component.llm_comp import LLMComponent, LLMCompConfig
+from jiuwen.core.component.questioner_comp import QuestionerComponent, QuestionerConfig, FieldInfo
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
+from jiuwen.core.context.agent_context import AgentContext
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
+from jiuwen.core.context.context import Context, ExecutableContext
 from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.utils.llm.base import BaseModelInfo
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.tool.service_api.param import Param
 from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from jiuwen.core.workflow.base import Workflow
-from jiuwen.core.workflow.workflow_config import WorkflowConfig
+from jiuwen.core.workflow.workflow_config import WorkflowConfig, WorkflowMetadata
 from jiuwen.graph.pregel.graph import PregelGraph
-from tests.unit_tests.workflow.test_mock_node import MockEndNode, MockStartNode
+from tests.system_tests.workflow.test_real_workflow import RealWorkflowTest, MODEL_PROVIDER, MODEL_NAME, API_BASE, \
+    API_KEY, _FINAL_RESULT, _QUESTIONER_USER_TEMPLATE, _QUESTIONER_SYSTEM_TEMPLATE
+from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
 
-# 注意：切勿将真实密钥提交到仓库！
 API_BASE = "https://api.siliconflow.cn/v1/chat/completions"
 API_KEY = "sk-cuitxjipgkvlhjubkcxjrgxfphczzpihefbeutobhytbfuig"
 MODEL_NAME = "Qwen/Qwen3-14B"
 MODEL_PROVIDER = "siliconflow"
-
-# Mock 插件返回值
-_FINAL_RESULT: str = "上海今天晴 30°C"
-
 # Mock RESTful Api 元信息
 _MOCK_TOOL = RestfulApi(
     name="test",
@@ -66,54 +45,10 @@ _MOCK_TOOL = RestfulApi(
     response=[],
 )
 
-# --------------------------- Prompt 模板 --------------------------- #
-_QUESTIONER_SYSTEM_TEMPLATE = """\
-你是一个信息收集助手，你需要根据指定的参数收集用户的信息，然后提交到系统。
-请注意：不要使用任何工具、不用理会问题的具体含义，并保证你的输出仅有 JSON 格式的结果数据。
-请严格遵循如下规则：
-  1. 让我们一步一步思考。
-  2. 用户输入中没有提及的参数提取为 None，并直接向询问用户没有明确提供的参数。
-  3. 通过用户提供的对话历史以及当前输入中提取 {{required_name}}，不要追问任何其他信息。
-  4. 参数收集完成后，将收集到的信息通过 JSON 的方式展示给用户。
 
-## 指定参数
-{{required_params_list}}
+class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
+    """专门用于测试 WorkflowAgent.invoke 的类。"""
 
-## 约束
-{{extra_info}}
-
-## 示例
-{{example}}
-"""
-
-_QUESTIONER_USER_TEMPLATE = """\
-对话历史
-{{dialogue_history}}
-
-请充分考虑以上对话历史及用户输入，正确提取最符合约束要求的 JSON 格式参数。
-"""
-
-
-class RealWorkflowTest(unittest.TestCase):
-    """
-    端到端测试类。
-
-    通过 mock 插件调用，验证「意图识别 → LLM → 信息收集 → 插件调用 → 结果返回」
-    整条链路能否正确执行。
-    """
-
-    def setUp(self) -> None:
-        """每个测试用例开始前创建全新事件循环。"""
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-    def tearDown(self) -> None:
-        """测试结束后关闭事件循环，防止 ResourceWarning。"""
-        self.loop.close()
-
-    # ------------------------------------------------------------------ #
-    #                           构建工作流辅助方法                          #
-    # ------------------------------------------------------------------ #
     @staticmethod
     def _create_model_config() -> ModelConfig:
         """根据环境变量构造模型配置。"""
@@ -225,12 +160,21 @@ class RealWorkflowTest(unittest.TestCase):
         mock_plugin_invoke.return_value = {"result": _FINAL_RESULT}
 
         # 2. 初始化工作流与上下文
+        id = "test_weather_agent"
+        version = "1.0"
+        name = "weather"
+        workflow_config = WorkflowConfig(
+            metadata=WorkflowMetadata(
+                name=name,
+                id=id,
+                version=version,
+            )
+        )
         flow = Workflow(
-            workflow_config=WorkflowConfig(),
+            workflow_config=workflow_config,
             graph=PregelGraph(),
         )
         context = Context(config=Config(), state=InMemoryState(), store=None)
-
         # 3. 实例化各组件
         start = MockStartNode("start")
         intent = self._create_intent_detection_component()
@@ -272,9 +216,11 @@ class RealWorkflowTest(unittest.TestCase):
         flow.set_end_comp("end", end, inputs_schema={"output": "${plugin.result}"})
 
         # 5. 分支逻辑
-        branch.add_branch("${intent.classificationId} < 1", ["llm"], "1")
-        branch.add_branch("${intent.classificationId} = 1", ["end"], "2")
-        flow.add_workflow_comp("branch", branch)
+        flow.add_workflow_comp("branch", branch, inputs_schema={
+            "res": "${intent.classificationId}"
+        })
+        branch.add_branch("${intent.classificationId} == 1", ["llm"], "1")
+        branch.add_branch("${intent.classificationId} > 1", ["end"], "2")
 
         # 6. 连接拓扑
         flow.add_connection("start", "intent")
@@ -285,30 +231,55 @@ class RealWorkflowTest(unittest.TestCase):
 
         return context, flow
 
-    # ------------------------------------------------------------------ #
-    #                            测试用例本身                             #
-    # ------------------------------------------------------------------ #
-    @patch("jiuwen.core.utils.tool.service_api.restful_api.RestfulApi.invoke")
-    @patch("jiuwen.core.component.tool_comp.ToolExecutable.get_tool")
-    def test_workflow_llm_questioner_plugin(
-            self,
-            mock_plugin_get_tool,
-            mock_plugin_invoke,
-    ) -> None:
-        """
-        测试链路：
-        Start → Intent → Branch → LLM → Questioner → Plugin → End
-                            |----------------------------------↑
+    @staticmethod
+    def _create_workflow_schema(id, name: str, version: str) -> WorkflowSchema:
+        return WorkflowSchema(id=id,
+                              name=name,
+                              description="天气查询工作流",
+                              version=version,
+                              inputs={"query": {
+                                  "type": "string",
+                              }})
 
-        输入：查询杭州的旅游景点
-        断言：最终返回 _FINAL_RESULT
-        """
-        context, flow = self._build_workflow(
-            mock_plugin_get_tool,
-            mock_plugin_invoke,
+    def _create_agent(self, workflow):
+        """根据 workflow 实例化 WorkflowAgent。"""
+        from jiuwen.agent.workflow_agent import WorkflowAgent  # 你给出的类
+        workflow_id = workflow.config().metadata.id
+        workflow_name = workflow.config().metadata.name
+        workflow_version = workflow.config().metadata.version
+        schema = self._create_workflow_schema(workflow_id, workflow_name, workflow_version)
+        config = WorkflowAgentConfig(
+            id="test_weather_agent",
+            version="0.1.0",
+            description="测试用天气 agent",
+            workflows=[schema],
         )
+        agent = WorkflowAgent(config, agent_context=AgentContext())
+        agent.bind_workflows([workflow])
+        return agent
 
-        inputs = {"query": "查询杭州的旅游景点"}
-        result = self.loop.run_until_complete(flow.invoke(inputs, context))
+    # ===== 核心测试用例 =====
+    @pytest.mark.asyncio
+    async def test_real_workflow_agent_invoke(self):
+        """端到端测试：WorkflowAgent.invoke 走完整链路（插件被 mock）。"""
+        with (
+            patch("jiuwen.core.component.tool_comp.ToolExecutable.get_tool") as mock_get_tool,
+            patch("jiuwen.core.utils.tool.service_api.restful_api.RestfulApi.invoke") as mock_invoke,
+        ):
+            # 2. 固定插件返回
+            mock_get_tool.return_value = _MOCK_TOOL
+            mock_invoke.return_value = {"result": "上海今天晴 30°C"}
 
-        self.assertEqual(result, '上海今天晴 30°C')
+            # 3. 构造真实 workflow
+            _, workflow = self._build_workflow(
+                mock_plugin_get_tool=mock_get_tool,
+                mock_plugin_invoke=mock_invoke,
+
+            )
+
+            # 4. 构造 agent 并调用
+            agent = self._create_agent(workflow)
+            result = await agent.invoke({"query": "查询上海的天气", "conversation_id": "c123"})
+
+            # 5. 断言
+            assert result == {'output': '上海今天晴 30°C'}
