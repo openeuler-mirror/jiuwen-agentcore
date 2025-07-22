@@ -4,15 +4,21 @@
 
 from __future__ import annotations
 
+from abc import abstractmethod, ABC
+from typing import Generic
+
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver, V
+
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Input
 
-class BaseCheckpointer(object):
+class BaseCheckpointer(BaseCheckpointSaver[V], Generic[V], ABC):
 
     def __init__(self):
+        super().__init__()
         self.ctx: Context = None
         self.input: Input = None
-        self._recovered = False
 
     def register_context(self, ctx: Context):
         self.ctx = ctx
@@ -20,11 +26,10 @@ class BaseCheckpointer(object):
     def register_input(self, input: Input):
         self.input = input
 
-    def init_recovered(self):
-        self._recovered = False
+    @abstractmethod
+    def recover(self, config: RunnableConfig):
+        raise NotImplementedError
 
-    def recovered(self):
-        if not self._recovered:
-            self._recovered = True
-            return False
-        return True
+    @abstractmethod
+    def save(self, config: RunnableConfig):
+        raise NotImplementedError
