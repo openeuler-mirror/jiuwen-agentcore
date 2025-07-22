@@ -37,10 +37,16 @@ class Tracer:
         workflow_span_manager = self.tracer_workflow_span_manager_dict.get(parent_node_id, None)
         if workflow_span_manager is None:
             return None
-        return self.tracer_agent_span_manager.get_span(invoke_id)
+        return workflow_span_manager.get_span(invoke_id)
 
     async def trigger(self, handler_class_name: str, event_name: str, **kwargs):
         parent_node_id = kwargs.get("parent_node_id", None)
         if parent_node_id is not None:
             handler_class_name += "." + parent_node_id if parent_node_id != "" else ""
         await self._callback_manager.trigger(handler_class_name, event_name, **kwargs)
+
+    def pop_workflow_span(self, invoke_id: str, parent_node_id: str):
+        if parent_node_id not in self.tracer_workflow_span_manager_dict:
+            return
+        self.tracer_workflow_span_manager_dict.get(parent_node_id).pop_span(invoke_id)
+

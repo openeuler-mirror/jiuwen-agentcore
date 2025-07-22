@@ -12,7 +12,6 @@ from jiuwen.core.runtime.callback_manager import CallbackManager
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.tracer.tracer import Tracer
 
-
 class Context(ABC):
     def __init__(self, config: Config, state: State, store: Store = None, session_id: str = None):
         self._config = config

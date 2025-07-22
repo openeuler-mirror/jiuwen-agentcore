@@ -96,7 +96,6 @@ class Vertex:
                                          self._context.tracer.get_workflow_span(self._context.executable_id,
                                                                                 self._context.parent_id))
 
-
     def _get_component_metadata(self) -> dict:
         component_metadata = {"component_type": self._context.executable_id}
         loop_id = self._context.state.get(LOOP_ID)
@@ -104,8 +103,9 @@ class Vertex:
             index = self._context.state.get(loop_id + NESTED_PATH_SPLIT + INDEX)
             component_metadata.update({
                 "loop_node_id": loop_id,
-                "loop_index": index
+                "loop_index": index + 1
             })
+            self._context.tracer.pop_workflow_span(self._context.executable_id, self._context.parent_id)
         return component_metadata
 
     def __is_stream__(self, state: GraphState) -> bool:

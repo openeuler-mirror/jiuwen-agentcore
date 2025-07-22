@@ -363,7 +363,8 @@ class WorkflowTest(unittest.TestCase):
                 assert payload.get("parentInvokeId") == None, f"sub_start node parent_invoke_id should be None"
                 assert payload.get("parentNodeId") == "a", f"sub_start node parent_node_id should be a"
             elif payload.get("invokeId") == "a.sub_a":
-                assert payload.get("parentInvokeId") == "a.sub_start", f"sub_a node parent_invoke_id should be sub_start"
+                assert payload.get(
+                    "parentInvokeId") == "a.sub_start", f"sub_a node parent_invoke_id should be sub_start"
                 assert payload.get("parentNodeId") == "a", f"sub_a node parent_node_id should be a"
             elif payload.get("invokeId") == "a.sub_end":
                 assert payload.get("parentInvokeId") == "a.sub_a", f"sub_end node parent_invoke_id should be sub_a"
@@ -444,7 +445,7 @@ class WorkflowTest(unittest.TestCase):
         self.loop.run_until_complete(stream_workflow())
         record_tracer_info(tracer_chunks, "test_nested_parallel_stream_workflow_with_tracer.json")
 
-    def test_workflow_with_loop(self):
+    def test_workflow_stream_with_loop_with_tracer(self):
         """
         s->a->loop(1->2->3)->b->e
         """
@@ -473,7 +474,8 @@ class WorkflowTest(unittest.TestCase):
             loop_group.add_connection("1", "2")
             loop_group.add_connection("2", "3")
             output_callback = OutputCallback("l",
-                                             {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
+                                             {"results": "${1.result}",
+                                              "user_var": "${l.intermediateLoopVar.user_var}"})
             intermediate_callback = IntermediateLoopVarCallback("l",
                                                                 {"user_var": "${input_number}"})
 
@@ -495,10 +497,17 @@ class WorkflowTest(unittest.TestCase):
                     tracer_chunks.append(chunk)
 
         self.loop.run_until_complete(stream_workflow())
-        record_tracer_info(tracer_chunks, "test_workflow_with_loop.json")
-
-        # result = self.invoke_workflow({"input_array": [1, 2, 3], "input_number": 1}, create_context_with_tracer(), flow)
-        #     assert result == {"array_result": [11, 12, 13], "user_var": 31}
-        #
-        #     result = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, create_context_with_tracer(), flow)
-        #     assert result == {"array_result": [14, 15], "user_var": 22}
+        loop_index = 1
+        for chunk in tracer_chunks:
+            payload = chunk.payload
+            if payload.get("invokeId") == "l":
+                assert payload.get("parentInvokeId") == "a", f"l node parent_invoke_id should be a"
+                assert payload.get("parentNodeId") == "", f"a node parent_node_id should be ''"
+            elif payload.get("invokeId") == "3":
+                assert payload.get("parentInvokeId") == "2", f"3 node parent_invoke_id should be start"
+                assert payload.get("parentNodeId") == "", f"3 node parent_node_id should be ''"
+                assert payload.get("loopNodeId") == "l", f"3 node parent_node_id should be l"
+                if payload.get("status") == "finish":
+                    assert payload.get("loopIndex") == loop_index, f"3 node loopIndex should be {loop_index}"
+                    loop_index += 1
+        record_tracer_info(tracer_chunks, "test_workflow_stream_with_loop_with_tracer.json")

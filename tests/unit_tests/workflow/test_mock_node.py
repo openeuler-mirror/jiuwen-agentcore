@@ -38,7 +38,7 @@ class MockNodeBase(Executable, WorkflowComponent):
         return self
 
 
-class MockStartNode(Start, MockNodeBase):
+class MockStartNode(Start):
     def __init__(self, node_id: str):
         super().__init__(node_id, {})
 
@@ -48,7 +48,7 @@ class MockStartNode(Start, MockNodeBase):
         return inputs
 
 
-class MockEndNode(End, MockNodeBase):
+class MockEndNode(End):
     def __init__(self, node_id: str):
         super().__init__(node_id, "end", {"responseTemplate": "hello:{{end_input}}"})
         self.node_id = node_id

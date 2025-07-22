@@ -1,4 +1,3 @@
-import asyncio
 import copy
 import json
 from abc import abstractmethod
@@ -211,10 +210,6 @@ class TraceWorkflowHandler(TraceBaseHandler):
     def __init__(self, owner, stream_writer_manager, spanManager):
         super().__init__(owner, stream_writer_manager, spanManager)
 
-        # TODO 确认llm临时数据使用
-        # TODO on_invoke
-        # TODO on_post_invoke
-
     def event_name(self) -> str:
         return TracerHandlerName.TRACER_WORKFLOW.value
 
@@ -227,9 +222,9 @@ class TraceWorkflowHandler(TraceBaseHandler):
         if span.error:
             return NodeStatus.ERROR.value
         if span.on_invoke_data:
-            return NodeStatus.RUNNING.value if not span.outputs else NodeStatus.FINISH.value
+            return NodeStatus.RUNNING.value if not span.end_time else NodeStatus.FINISH.value
         if span.end_time:
-            return NodeStatus.FINISH.value if span.outputs else NodeStatus.RUNNING.value
+            return NodeStatus.FINISH.value
         return NodeStatus.START.value
 
     def _get_tracer_workflow_span(self, invoke_id: str) -> TraceWorkflowSpan:
@@ -283,9 +278,6 @@ class TraceWorkflowHandler(TraceBaseHandler):
             if not isinstance(span.on_invoke_data, list):
                 span.on_invoke_data = []
             span.on_invoke_data.append(on_invoke_data)
-            if span.component_type == "LLM":
-                # TODO
-                pass
         self._span_manager.update_span(span, update_data)
 
         await self._send_data(span)
