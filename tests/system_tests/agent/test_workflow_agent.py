@@ -1,4 +1,5 @@
 # tests/test_workflow_agent_invoke_real.py
+import os
 import unittest
 
 import pytest
@@ -27,10 +28,10 @@ from tests.system_tests.workflow.test_real_workflow import RealWorkflowTest, MOD
     API_KEY, _FINAL_RESULT, _QUESTIONER_USER_TEMPLATE, _QUESTIONER_SYSTEM_TEMPLATE
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
 
-API_BASE = "https://api.siliconflow.cn/v1/chat/completions"
-API_KEY = "sk-cuitxjipgkvlhjubkcxjrgxfphczzpihefbeutobhytbfuig"
-MODEL_NAME = "Qwen/Qwen3-14B"
-MODEL_PROVIDER = "siliconflow"
+API_BASE = os.getenv("API_BASE", "")
+API_KEY = os.getenv("API_KEY", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "")
 # Mock RESTful Api 元信息
 _MOCK_TOOL = RestfulApi(
     name="test",
