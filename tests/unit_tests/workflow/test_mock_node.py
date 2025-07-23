@@ -2,7 +2,9 @@ import asyncio
 from typing import AsyncIterator
 
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
+from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.component.end_comp import End
+from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
@@ -36,9 +38,9 @@ class MockNodeBase(Executable, WorkflowComponent):
         return self
 
 
-class MockStartNode(StartComponent, MockNodeBase):
+class MockStartNode(Start, MockNodeBase):
     def __init__(self, node_id: str):
-        super().__init__(node_id)
+        super().__init__(node_id, {})
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         context.state.set_outputs(self.node_id, inputs)
@@ -46,9 +48,9 @@ class MockStartNode(StartComponent, MockNodeBase):
         return inputs
 
 
-class MockEndNode(EndComponent, MockNodeBase):
+class MockEndNode(End, MockNodeBase):
     def __init__(self, node_id: str):
-        super().__init__(node_id)
+        super().__init__(node_id, "end", {"responseTemplate": "hello:{{end_input}}"})
         self.node_id = node_id
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
@@ -117,9 +119,9 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
         return inputs
 
 
-class MockStartNode4Cp(StartComponent, MockNodeBase):
+class MockStartNode4Cp(Start, MockNodeBase):
     def __init__(self, node_id: str):
-        super().__init__(node_id)
+        super().__init__(node_id, {})
         self.runtime = 0
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
