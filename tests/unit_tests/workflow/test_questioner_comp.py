@@ -8,6 +8,10 @@ from jiuwen.core.component.questioner_comp import QuestionerInteractState, Field
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.stream.emitter import StreamEmitter
+from jiuwen.core.stream.manager import StreamWriterManager
+from jiuwen.core.stream.writer import TraceSchema
+from jiuwen.core.tracer.tracer import Tracer
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.workflow.base import Workflow
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
@@ -18,6 +22,10 @@ class MockLLMModel:
     pass
 
 class QuestionerTest(unittest.TestCase):
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
     def invoke_workflow(self, inputs: dict, context: Context, flow: Workflow):
         loop = asyncio.get_event_loop()
         feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context))
@@ -28,8 +36,8 @@ class QuestionerTest(unittest.TestCase):
     @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._build_llm_inputs")
     @patch("jiuwen.core.component.questioner_comp.QuestionerExecutable._init_prompt")
     @patch("jiuwen.core.utils.llm.model_utils.model_factory.ModelFactory.get_model")
-    def test_questioner_component_in_workflow_initial_ask(self, mock_get_model, mock_init_prompt, mock_llm_inputs,
-                                                          mock_extraction):
+    def test_invoke_questioner_component_in_workflow_initial_ask(self, mock_get_model, mock_init_prompt, mock_llm_inputs,
+                                                                 mock_extraction):
         mock_get_model.return_value = MockLLMModel()
         mock_prompt_template = [
             dict(role="system", content="系统提示词"),
@@ -39,7 +47,7 @@ class QuestionerTest(unittest.TestCase):
         mock_llm_inputs.return_value = mock_prompt_template
         mock_extraction.return_value = dict(location="hangzhou")
 
-        context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
+        context = Context(config=Config(), state=InMemoryState(), store=None)
         flow = create_flow()
 
         key_fields = [
@@ -60,14 +68,15 @@ class QuestionerTest(unittest.TestCase):
         )
         questioner_component = QuestionerComponent(questioner_comp_config=questioner_config)
 
-        flow.set_start_comp("s", start_component)
-        flow.set_end_comp("e", end_component)
-        flow.add_workflow_comp("questioner", questioner_component)
+        flow.set_start_comp("s", start_component, inputs_schema={"query": "${query}"})
+        flow.set_end_comp("e", end_component, inputs_schema={"output": "${questioner.userFields.key_fields}"})
+        flow.add_workflow_comp("questioner", questioner_component, inputs_schema={"query": "${start.query}"})
 
         flow.add_connection("s", "questioner")
         flow.add_connection("questioner", "e")
 
-        result = self.invoke_workflow({}, context, flow)
+        result = self.invoke_workflow({"query": "查询杭州的天气"}, context, flow)
+        assert result == {'output': {'location': 'hangzhou', 'time': 'today'}}
 
 
     @patch("jiuwen.core.component.questioner_comp.QuestionerExecutable._load_state_from_context")
@@ -75,8 +84,8 @@ class QuestionerTest(unittest.TestCase):
     @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._build_llm_inputs")
     @patch("jiuwen.core.component.questioner_comp.QuestionerExecutable._init_prompt")
     @patch("jiuwen.core.utils.llm.model_utils.model_factory.ModelFactory.get_model")
-    def test_questioner_component_in_workflow_repeat_ask(self, mock_get_model, mock_init_prompt, mock_llm_inputs,
-                                                         mock_extraction, mock_state_from_context):
+    def test_invoke_questioner_component_in_workflow_repeat_ask(self, mock_get_model, mock_init_prompt, mock_llm_inputs,
+                                                                mock_extraction, mock_state_from_context):
         mock_get_model.return_value = MockLLMModel()
         mock_prompt_template = [
             dict(role="system", content="系统提示词"),
@@ -88,7 +97,7 @@ class QuestionerTest(unittest.TestCase):
         state = QuestionerInteractState(extracted_key_fields=dict(location="hangzhou"))
         mock_state_from_context.return_value = state
 
-        context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
+        context = Context(config=Config(), state=InMemoryState(), store=None)
         flow = create_flow()
 
         key_fields = [
@@ -116,4 +125,71 @@ class QuestionerTest(unittest.TestCase):
         flow.add_connection("s", "questioner")
         flow.add_connection("questioner", "e")
 
-        result = self.invoke_workflow({}, context, flow)
+        result = self.invoke_workflow({"query": "查询杭州的天气"}, context, flow)
+        assert result == {'output': {'location': 'hangzhou', 'time': 'today'}}
+
+    @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._invoke_llm_for_extraction")
+    @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._build_llm_inputs")
+    @patch("jiuwen.core.component.questioner_comp.QuestionerExecutable._init_prompt")
+    @patch("jiuwen.core.utils.llm.model_utils.model_factory.ModelFactory.get_model")
+    def test_stream_questioner_component_in_workflow_initial_ask_with_tracer(self, mock_get_model, mock_init_prompt,
+                                                                            mock_llm_inputs, mock_extraction):
+        '''
+        tracer使用问题记录：
+        1. 必须调用workflow、agent的 stream方法，才能获取到tracer的数据帧
+        2. workflow组件的输入输出，tracer都已经记录了，组件只需要关注额外的数据
+        3. agent用agent_tracer，workflow用workflow_tracer
+        4. event有定义，参考handler.py的@trigger_event
+        5. on_invoke_data是固定的结构，结构为 dict(on_invoke_data={"on_invoke_data": "extra trace data"})
+        '''
+
+        mock_get_model.return_value = MockLLMModel()
+        mock_prompt_template = [
+            dict(role="system", content="系统提示词"),
+            dict(role="user", content="你是一个AI助手")
+        ]
+        mock_init_prompt.return_value = Template(name="test", content=mock_prompt_template)
+        mock_llm_inputs.return_value = mock_prompt_template
+        mock_extraction.return_value = dict(location="hangzhou")
+
+        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context.set_stream_writer_manager(StreamWriterManager(StreamEmitter()))
+        tracer = Tracer()
+        tracer.init(context.stream_writer_manager, context.callback_manager)
+        context.set_tracer(tracer)
+        flow = create_flow()
+
+        key_fields = [
+            FieldInfo(field_name="location", description="地点", required=True),
+            FieldInfo(field_name="time", description="时间", required=True, default_value="today")
+        ]
+
+        start_component = MockStartNode("s")
+        end_component = MockEndNode("e")
+
+        model_config = ModelConfig(model_provider="openai")
+        questioner_config = QuestionerConfig(
+            model=model_config,
+            question_content="",
+            extract_fields_from_response=True,
+            field_names=key_fields,
+            with_chat_history=False
+        )
+        questioner_component = QuestionerComponent(questioner_comp_config=questioner_config)
+
+        flow.set_start_comp("s", start_component, inputs_schema={"query": "${query}"})
+        flow.set_end_comp("e", end_component, inputs_schema={"output": "${questioner.userFields.key_fields}"})
+        flow.add_workflow_comp("questioner", questioner_component, inputs_schema={"query": "${start.query}"})
+
+        flow.add_connection("s", "questioner")
+        flow.add_connection("questioner", "e")
+
+        async def _async_stream_workflow_for_tracer(_flow, _inputs, _context, _tracer_chunks):
+            async for chunk in flow.stream(_inputs, _context):
+                if isinstance(chunk, TraceSchema):
+                    _tracer_chunks.append(chunk)
+
+        tracer_chunks = []
+        self.loop.run_until_complete(_async_stream_workflow_for_tracer(flow, {"query": "查询杭州的天气"}, context,
+                                                                       tracer_chunks))
+        print(tracer_chunks)

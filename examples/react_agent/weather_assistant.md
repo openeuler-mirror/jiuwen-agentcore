@@ -166,6 +166,11 @@ def create_react_agent(agent_config: ReActAgentConfig,
 result = await react_agent.invoke({"query": "查询杭州的天气"})
 ```
 
+执行天气查询助手成功后，会得到如下的结果：
+```text
+{'output': '\n\n当前杭州的天气情况如下：\n- 天气现象：小雨\n- 实时温度：30.78℃\n- 体感温度：37.78℃\n- 空气湿度：74%\n- 风速：0.77米/秒（约2.8公里/小时）\n\n建议外出时携带雨具，注意防雨防滑。需要其他天气信息可以随时告诉我哦~'}
+```
+
 ReActAgent的invoke方法实现了ReAct规划流程，代码如下：
 ```python
 class ReActAgent(Agent):
@@ -193,11 +198,6 @@ class ReActAgent(Agent):
         self._state.handle_react_completed_event(controller_output.llm_output.content)
         self._store_state_to_context(context)
         return dict(output=self._state.final_result)
-```
-
-执行天气查询助手成功后，会得到如下的结果：
-```text
-{'output': '\n\n当前杭州的天气情况如下：\n- 天气现象：小雨\n- 实时温度：30.78℃\n- 体感温度：37.78℃\n- 空气湿度：74%\n- 风速：0.77米/秒（约2.8公里/小时）\n\n建议外出时携带雨具，注意防雨防滑。需要其他天气信息可以随时告诉我哦~'}
 ```
 
 恭喜你，成功搭建了第一个ReAct Agent！
