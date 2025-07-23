@@ -1,5 +1,6 @@
-from typing import Dict
+from typing import Dict, List
 
+from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
 from jiuwen.core.agent.task.task import Task
 from jiuwen.core.context.agent_context import AgentContext
@@ -7,10 +8,29 @@ from jiuwen.core.context.controller_context.controller_context_manager import Co
 from jiuwen.core.agent.controller.workflow_controller import WorkflowController, WorkflowControllerOutput
 from jiuwen.core.agent.agent import Agent
 from jiuwen.core.agent.handler.base import AgentHandlerImpl, AgentHandlerInputs
+from jiuwen.core.workflow.base import Workflow
+
+
+def create_workflow_agent_config(agent_id: str,
+                                 agent_version: str,
+                                 description: str,
+                                 workflows: List[WorkflowSchema]):
+    config = WorkflowAgentConfig(id=agent_id,
+                                 version=agent_version,
+                                 description=description,
+                                 workflows=workflows)
+    return config
+
+
+def create_workflow_agent(agent_config: WorkflowAgentConfig,
+                          workflows: List[Workflow] = None):
+    agent = WorkflowAgent(agent_config)
+    agent.bind_workflows(workflows)
+    return agent
 
 
 class WorkflowAgent(Agent):
-    def __init__(self, agent_config: WorkflowAgentConfig, agent_context: AgentContext):
+    def __init__(self, agent_config: WorkflowAgentConfig, agent_context: AgentContext = None):
         super().__init__(agent_config, agent_context)
         self._config = agent_config
 
