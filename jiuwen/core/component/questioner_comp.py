@@ -399,6 +399,12 @@ class QuestionerExecutable(Executable):
         return self
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
+        tracer = context.tracer
+        if tracer:
+            tracer.trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id,
+                           parent_node_id=context.parent_id,
+                           on_invoke_data={"on_invoke_data": "extra trace data"})
+
         state_from_context = self._load_state_from_context(context)
         if state_from_context.is_undergoing_interaction():
             self._state = state_from_context
