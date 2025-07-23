@@ -22,6 +22,7 @@
 ├─▶ ④ Tool 调 API      →  {"result":"上海今天晴 30°C"}
 └─▶ ⑤ WorkflowAgent    →  返回给用户
 ```
+![](../resource/workflow_agent.png)
 
 ---
 
@@ -90,7 +91,7 @@ def _create_model_config() -> ModelConfig:
 |------|------------------------|----------------------------|
 | 意图识别 | 判断用户是否需要查天气            | `IntentDetectionComponent` |
 | 大模型  | 用 LLM 抽取 location/date | `LLMComponent`             |
-| 信息收集 | 若字段缺失，主动提问             | `QuestionerComponent`      |
+| 提问器  | 若字段缺失，主动提问             | `QuestionerComponent`      |
 | 工具调用 | 真正调用天气 RESTful API     | `ToolComponent`            |
 
 代码：
@@ -155,9 +156,9 @@ def _create_llm_component() -> LLMComponent:
     return LLMComponent(config)
 
 
-# ---------- 3. 信息收集组件 ----------
+# ---------- 3. 提问器组件 ----------
 def _create_questioner_component() -> QuestionerComponent:
-    """创建信息收集组件。"""
+    """创建提问器组件。"""
     key_fields = [
         FieldInfo(field_name="location", description="地点", required=True),
         FieldInfo(
