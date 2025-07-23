@@ -15,11 +15,13 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import unittest
 from unittest.mock import patch
 
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.common.configs.model_config import ModelConfig
+from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.intent_detection_comp import (
     IntentDetectionComponent,
     IntentDetectionConfig,
@@ -30,10 +32,12 @@ from jiuwen.core.component.questioner_comp import (
     QuestionerComponent,
     QuestionerConfig,
 )
+from jiuwen.core.component.start_comp import Start
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.utils.llm.base import BaseModelInfo
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.tool.service_api.param import Param
@@ -44,10 +48,10 @@ from jiuwen.graph.pregel.graph import PregelGraph
 from tests.unit_tests.workflow.test_mock_node import MockEndNode, MockStartNode
 
 # 注意：切勿将真实密钥提交到仓库！
-API_BASE = "https://api.siliconflow.cn/v1/chat/completions"
-API_KEY = "sk-cuitxjipgkvlhjubkcxjrgxfphczzpihefbeutobhytbfuig"
-MODEL_NAME = "Qwen/Qwen3-14B"
-MODEL_PROVIDER = "siliconflow"
+API_BASE = os.getenv("API_BASE", "")
+API_KEY = os.getenv("API_KEY", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "")
+MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "")
 
 # Mock 插件返回值
 _FINAL_RESULT: str = "上海今天晴 30°C"
@@ -210,6 +214,12 @@ class RealWorkflowTest(unittest.TestCase):
         tool_config = ToolComponentConfig(needValidate=False)
         return ToolComponent(tool_config)
 
+    @staticmethod
+    async def _async_stream_workflow_for_stream_writer(flow, inputs, context, tracer_chunks):
+        async for chunk in flow.stream(inputs, context):
+            if isinstance(chunk, CustomSchema):
+                tracer_chunks.append(chunk)
+
     def _build_workflow(
             self,
             mock_plugin_get_tool,
@@ -312,3 +322,44 @@ class RealWorkflowTest(unittest.TestCase):
         result = self.loop.run_until_complete(flow.invoke(inputs, context))
 
         self.assertEqual(result, '上海今天晴 30°C')
+
+    def test_stream_workflow_llm_with_stream_writer(self):
+        """
+        测试LLM组件通过StreamWriter流出数据
+        """
+        context = Context(config=Config(), state=InMemoryState(), store=None)
+        flow = Workflow(workflow_config=WorkflowConfig(), graph=PregelGraph())
+
+        start_component = Start("s",
+                                {
+                                    "userFields": {"inputs": [], "outputs": []},
+                                    "systemFields": {"input": [
+                                        {"id": "query", "type": "String", "required": "true", "sourceType": "ref"}
+                                    ]
+                                    }
+                                }
+                                )
+        end_component = End("e", "e", {"responseTemplate": "{{output}}"})
+
+        llm_config = LLMCompConfig(
+            model=RealWorkflowTest._create_model_config(),
+            template_content=[{"role": "user", "content": "{{query}}"}],
+            response_format={"type": "text"},
+            output_config={
+                "joke": {"type": "string", "description": "笑话", "required": True}
+            },
+        )
+        llm_component = LLMComponent(llm_config)
+
+        flow.set_start_comp("s", start_component, inputs_schema={"systemFields": {"query": "${query}"}})
+        flow.set_end_comp("e", end_component,
+                          inputs_schema={"userFields": {"output": "${llm.userFields}"}})
+        flow.add_workflow_comp("llm", llm_component, inputs_schema={"userFields": {"query": "${s.systemFields.query}"}})
+
+        flow.add_connection("s", "llm")
+        flow.add_connection("llm", "e")
+
+        inputs = {"query": "写一个笑话。注意：不要超过20个字！"}
+        writer_chunks = []
+        self.loop.run_until_complete(self._async_stream_workflow_for_stream_writer(flow, inputs, context, writer_chunks))
+        print(writer_chunks)

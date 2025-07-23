@@ -29,7 +29,7 @@ class Start(Executable,WorkflowComponent):
         return dict(
             {
                 SYSTEM_FIELDS: {
-                    "query": inputs_copy.pop("query", ""),
+                    "query": inputs_copy.get("systemFields").get("query", ""),
                     "dialogueHistory": [],
                     "conversationHistory": inputs_copy.pop("conversationHistory", []),
                 },
