@@ -3,15 +3,14 @@ import unittest
 from unittest.mock import patch
 
 from jiuwen.core.component.common.configs.model_config import ModelConfig
+from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.questioner_comp import QuestionerInteractState, FieldInfo, QuestionerConfig, \
     QuestionerComponent
+from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
 from jiuwen.core.context.memory.base import InMemoryState
-from jiuwen.core.stream.emitter import StreamEmitter
-from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.stream.writer import TraceSchema
-from jiuwen.core.tracer.tracer import Tracer
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.workflow.base import Workflow
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
@@ -55,8 +54,16 @@ class QuestionerTest(unittest.TestCase):
             FieldInfo(field_name="time", description="时间", required=True, default_value="today")
         ]
 
-        start_component = MockStartNode("s")
-        end_component = MockEndNode("e")
+        start_component = Start("s",
+                                {
+                                    "userFields": {"inputs": [], "outputs": []},
+                                    "systemFields": {"input": [
+                                        {"id": "query", "type": "String", "required": "true", "sourceType": "ref"}
+                                    ]
+                                    }
+                                }
+                                )
+        end_component = End("e", "e", {"responseTemplate": "{{output}}"})
 
         model_config = ModelConfig(model_provider="openai")
         questioner_config = QuestionerConfig(
@@ -68,15 +75,16 @@ class QuestionerTest(unittest.TestCase):
         )
         questioner_component = QuestionerComponent(questioner_comp_config=questioner_config)
 
-        flow.set_start_comp("s", start_component, inputs_schema={"query": "${query}"})
-        flow.set_end_comp("e", end_component, inputs_schema={"output": "${questioner.userFields.key_fields}"})
+        flow.set_start_comp("s", start_component, inputs_schema={"systemFields": {"query": "${query}"}})
+        flow.set_end_comp("e", end_component,
+                          inputs_schema={"userFields": {"output": "${questioner.userFields.key_fields}"}})
         flow.add_workflow_comp("questioner", questioner_component, inputs_schema={"query": "${start.query}"})
 
         flow.add_connection("s", "questioner")
         flow.add_connection("questioner", "e")
 
         result = self.invoke_workflow({"query": "查询杭州的天气"}, context, flow)
-        assert result == {'output': {'location': 'hangzhou', 'time': 'today'}}
+        assert result == {'responseContent': "{'location': 'hangzhou', 'time': 'today'}"}
 
 
     @patch("jiuwen.core.component.questioner_comp.QuestionerExecutable._load_state_from_context")
@@ -86,6 +94,7 @@ class QuestionerTest(unittest.TestCase):
     @patch("jiuwen.core.utils.llm.model_utils.model_factory.ModelFactory.get_model")
     def test_invoke_questioner_component_in_workflow_repeat_ask(self, mock_get_model, mock_init_prompt, mock_llm_inputs,
                                                                 mock_extraction, mock_state_from_context):
+        # TODO: 调试中断恢复时调整这个用例
         mock_get_model.return_value = MockLLMModel()
         mock_prompt_template = [
             dict(role="system", content="系统提示词"),
@@ -141,6 +150,8 @@ class QuestionerTest(unittest.TestCase):
         3. agent用agent_tracer，workflow用workflow_tracer
         4. event有定义，参考handler.py的@trigger_event
         5. on_invoke_data是固定的结构，结构为 dict(on_invoke_data={"on_invoke_data": "extra trace data"})
+        6. span只有agent需要
+        7. workflow不需要context显式地调用set_tracer
         '''
 
         mock_get_model.return_value = MockLLMModel()
@@ -153,10 +164,6 @@ class QuestionerTest(unittest.TestCase):
         mock_extraction.return_value = dict(location="hangzhou")
 
         context = Context(config=Config(), state=InMemoryState(), store=None)
-        context.set_stream_writer_manager(StreamWriterManager(StreamEmitter()))
-        tracer = Tracer()
-        tracer.init(context.stream_writer_manager, context.callback_manager)
-        context.set_tracer(tracer)
         flow = create_flow()
 
         key_fields = [
@@ -164,8 +171,16 @@ class QuestionerTest(unittest.TestCase):
             FieldInfo(field_name="time", description="时间", required=True, default_value="today")
         ]
 
-        start_component = MockStartNode("s")
-        end_component = MockEndNode("e")
+        start_component = Start("s",
+                                {
+                                        "userFields":{"inputs":[],"outputs":[]},
+                                        "systemFields":{"input":[
+                                                {"id":"query", "type":"String", "required":"true", "sourceType":"ref"}
+                                            ]
+                                        }
+                                }
+                            )
+        end_component = End("e", "e", {"responseTemplate": "{{output}}"})
 
         model_config = ModelConfig(model_provider="openai")
         questioner_config = QuestionerConfig(
@@ -177,8 +192,8 @@ class QuestionerTest(unittest.TestCase):
         )
         questioner_component = QuestionerComponent(questioner_comp_config=questioner_config)
 
-        flow.set_start_comp("s", start_component, inputs_schema={"query": "${query}"})
-        flow.set_end_comp("e", end_component, inputs_schema={"output": "${questioner.userFields.key_fields}"})
+        flow.set_start_comp("s", start_component, inputs_schema={"systemFields": {"query": "${query}"}})
+        flow.set_end_comp("e", end_component, inputs_schema={"userFields": {"output": "${questioner.userFields.key_fields}"}})
         flow.add_workflow_comp("questioner", questioner_component, inputs_schema={"query": "${start.query}"})
 
         flow.add_connection("s", "questioner")

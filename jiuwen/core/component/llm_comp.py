@@ -13,6 +13,7 @@ from jiuwen.core.common.utils.utils import WorkflowLLMUtils, OutputFormatter, Va
 from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.utils.llm.base import BaseChatModel
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
 from jiuwen.core.utils.prompt.template.template import Template
@@ -96,7 +97,7 @@ class LLMPromptFormatter:
         if res_type == "markdown":
             instruction = (
                     response_format.get("markdownInstruction")
-                    or self._DEFAULT_MARKDOWN_INSTRUCTION
+                    or LLMPromptFormatter._DEFAULT_MARKDOWN_INSTRUCTION
             )
             prompt = instruction.replace("${query}", query)
 
@@ -145,6 +146,10 @@ class LLMExecutable(Executable):
             logger.info("[%s] model inputs %s", self._context.executable_id, model_inputs)
             llm_response = await self._llm.ainvoke(model_inputs)
             response = llm_response.content
+
+            # 临时调试：用于调用streamWriter实现流式输出
+            await context.stream_writer_manager.get_custom_writer().write(CustomSchema(**dict(streamOutput=response)))
+
             self._context.state.update({"response": response})
             logger.info("[%s] model outputs %s", self._context.executable_id, response)
             return self._create_output(response)
