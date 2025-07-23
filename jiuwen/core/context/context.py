@@ -12,7 +12,6 @@ from jiuwen.core.runtime.callback_manager import CallbackManager
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.tracer.tracer import Tracer
 
-
 class Context(ABC):
     def __init__(self, config: Config, state: State, store: Store = None, session_id: str = None):
         self._config = config
@@ -80,6 +79,7 @@ class ExecutableContext(Context):
         self._parent_id = context.executable_id if isinstance(context, ExecutableContext) else None
         self._executable_id = self._parent_id + "." + node_id if self._parent_id is not None else node_id
         super().__init__(context.config, context.state.create_executable_state(self._executable_id), context.store)
+        self._parent_context = context
 
     @property
     def node_id(self):
@@ -93,6 +93,9 @@ class ExecutableContext(Context):
     def parent_id(self):
         return self._parent_id
 
+    @property
+    def parent_context(self):
+        return self._parent_context
 
 class ContextSetter(ABC):
     def __init__(self, context: Context = None):

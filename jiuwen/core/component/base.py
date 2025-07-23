@@ -61,10 +61,3 @@ class ComponentAbility(Enum):
     def desc(self) -> str:
         return self._desc
 
-
-class InnerComponent(ABC):
-    pass
-
-
-class ExecGraphComponent(ABC):
-    pass

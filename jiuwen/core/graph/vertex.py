@@ -5,10 +5,11 @@ from typing import Any, Optional
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.component.base import InnerComponent, ExecGraphComponent
+from jiuwen.core.component.condition.condition import INDEX
+from jiuwen.core.component.loop_callback.loop_id import LOOP_ID
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.context.context import Context, ExecutableContext
-from jiuwen.core.context.utils import get_by_schema
+from jiuwen.core.context.utils import get_by_schema, NESTED_PATH_SPLIT
 from jiuwen.core.graph.base import INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Output
 from jiuwen.core.graph.graph_state import GraphState
@@ -21,10 +22,7 @@ class Vertex:
         self._context: ExecutableContext = None
 
     def init(self, context: Context) -> bool:
-        if isinstance(self._executable, InnerComponent):
-            self._context = context
-        else:
-            self._context = context.create_executable_context(self._node_id)
+        self._context = context.create_executable_context(self._node_id)
         return True
 
     async def __call__(self, state: GraphState, config: Any = None) -> Output:
@@ -33,7 +31,7 @@ class Vertex:
         inputs = await self.__pre_invoke__()
         logger.info("vertex[%s] inputs %s", self._node_id, inputs)
         is_stream = self.__is_stream__(state)
-        if isinstance(self._executable, ExecGraphComponent):
+        if self._executable.graph_invoker():
             inputs = {INPUTS_KEY: inputs, CONFIG_KEY: config}
 
         try:
@@ -74,13 +72,13 @@ class Vertex:
         pass
 
     async def __trace_inputs__(self, inputs: Optional[dict]) -> None:
-        if isinstance(self._executable, InnerComponent):
+        if self._executable.skip_trace():
             return
         # TODO 组件信息
         await self._context.tracer.trigger("tracer_workflow", "on_pre_invoke", invoke_id=self._context.executable_id,
                                            parent_node_id=self._context.parent_id,
                                            inputs=inputs,
-                                           component_metadata={"component_type": self._context.executable_id})
+                                           component_metadata=self._get_component_metadata())
         self._context.state.update_trace(self._context.executable_id,
                                          self._context.tracer.get_workflow_span(self._context.executable_id,
                                                                                 self._context.parent_id))
@@ -89,7 +87,7 @@ class Vertex:
             self._context.tracer.register_workflow_span_manager(self._context.executable_id)
 
     async def __trace_outputs__(self, outputs: Optional[dict] = None) -> None:
-        if isinstance(self._executable, InnerComponent):
+        if self._executable.skip_trace():
             return
         await self._context.tracer.trigger("tracer_workflow", "on_post_invoke", invoke_id=self._context.executable_id,
                                            parent_node_id=self._context.parent_id,
@@ -97,6 +95,18 @@ class Vertex:
         self._context.state.update_trace(self._context.executable_id,
                                          self._context.tracer.get_workflow_span(self._context.executable_id,
                                                                                 self._context.parent_id))
+
+    def _get_component_metadata(self) -> dict:
+        component_metadata = {"component_type": self._context.executable_id}
+        loop_id = self._context.state.get(LOOP_ID)
+        if loop_id:
+            index = self._context.state.get(loop_id + NESTED_PATH_SPLIT + INDEX)
+            component_metadata.update({
+                "loop_node_id": loop_id,
+                "loop_index": index + 1
+            })
+            self._context.tracer.pop_workflow_span(self._context.executable_id, self._context.parent_id)
+        return component_metadata
 
     def __is_stream__(self, state: GraphState) -> bool:
         return False

@@ -5,7 +5,7 @@ from typing import Iterator, AsyncIterator, Self, Union, Callable
 
 from langgraph.constants import END, START
 
-from jiuwen.core.component.base import WorkflowComponent, InnerComponent, ExecGraphComponent
+from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.break_comp import BreakComponent, LoopController
 from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, FuncCondition, INDEX
 from jiuwen.core.component.condition.expression import ExpressionCondition
@@ -13,14 +13,14 @@ from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
 from jiuwen.core.component.loop_callback.loop_id import LoopIdCallback
 from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.context.config import WorkflowConfig
-from jiuwen.core.context.context import Context, ContextSetter
+from jiuwen.core.context.context import Context, ContextSetter, ExecutableContext
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Output, Input, Executable
 from jiuwen.core.workflow.base import BaseWorkFlow
 
 
-class EmptyExecutable(Executable, InnerComponent):
+class EmptyExecutable(Executable):
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
         pass
 
@@ -36,8 +36,11 @@ class EmptyExecutable(Executable, InnerComponent):
     def interrupt(self, message: dict):
         return
 
+    def skip_trace(self) -> bool:
+        return True
 
-class LoopGroup(BaseWorkFlow, Executable, InnerComponent, ExecGraphComponent):
+
+class LoopGroup(BaseWorkFlow, Executable):
 
     def __init__(self, workflow_config: WorkflowConfig, new_graph: Graph):
         super().__init__(workflow_config, new_graph)
@@ -54,9 +57,10 @@ class LoopGroup(BaseWorkFlow, Executable, InnerComponent, ExecGraphComponent):
         return self
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        if self.compiled is None:
-            self.compiled = self.compile(context)
-        await self.compiled.invoke(inputs, context)
+        if isinstance(context, ExecutableContext) and isinstance(context.parent_context, ExecutableContext):
+            if self.compiled is None:
+                self.compiled = self.compile(context.parent_context.parent_context)
+            await self.compiled.invoke(inputs, context.parent_context.parent_context)
         return None
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
@@ -71,6 +75,11 @@ class LoopGroup(BaseWorkFlow, Executable, InnerComponent, ExecGraphComponent):
     async def interrupt(self, message: dict):
         pass
 
+    def skip_trace(self) -> bool:
+        return True
+
+    def graph_invoker(self) -> bool:
+        return True
 
 BROKEN = "_broken"
 FIRST_IN_LOOP = "_first_in_loop"
@@ -79,7 +88,7 @@ CONDITION_NODE_ID = "condition"
 BODY_NODE_ID = "body"
 
 
-class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable, InnerComponent, ExecGraphComponent):
+class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable):
 
     def __init__(self, node_id: str, body: Executable, new_graph: Graph,
                  condition: Union[str, Callable[[], bool], Condition] = None,
@@ -182,12 +191,13 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for context_setter in self._context_setters:
-            context_setter.set_context(context.create_executable_context(self._node_id))
+            context_setter.set_context(context)
 
         compiled = self._graph.compile(self._context)
-        if isinstance(self._body, LoopGroup):
-            self._body.compiled = self._body.compile(context)
-        await compiled.invoke(inputs, context)
+        if isinstance(context, ExecutableContext):
+            if isinstance(self._body, LoopGroup):
+                self._body.compiled = self._body.compile(context.parent_context)
+            await compiled.invoke(inputs, context.parent_context)
         return None
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
@@ -201,3 +211,6 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
     async def interrupt(self, message: dict):
         pass
+
+    def graph_invoker(self) -> bool:
+        return True

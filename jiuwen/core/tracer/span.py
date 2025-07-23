@@ -66,6 +66,12 @@ class SpanManager:
             return None
         return self._runtime_spans.get(invoke_id, None)
 
+    def pop_span(self, invoke_id: str):
+        if invoke_id not in self._order:
+            return
+        self._order.remove(invoke_id)
+        self._runtime_spans.pop(invoke_id)
+
     def refresh_span_record(self, invoke_id: str, runtime_span: Dict[str, Span]):
         if invoke_id not in self._order:
             self._order.append(invoke_id)
