@@ -12,15 +12,17 @@ from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import CompIOConfig, Transformer
-from jiuwen.core.context.context import Context
+from jiuwen.core.context.context import Context, ExecutableContext
+from jiuwen.core.context.mq_manager import MessageQueueManager
 from jiuwen.core.graph.base import Graph, Router, INPUTS_KEY, CONFIG_KEY, ExecutableGraph
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.stream.base import StreamMode, BaseStreamMode
 from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.stream.writer import OutputSchema
+from jiuwen.core.stream_actor.base import StreamActor
 from jiuwen.core.tracer.tracer import Tracer
-from jiuwen.core.workflow.workflow_config import WorkflowConfig
+from jiuwen.core.workflow.workflow_config import WorkflowConfig, ComponentAbility
 
 
 class WorkflowOutput(BaseModel):
@@ -38,6 +40,7 @@ class BaseWorkFlow:
     def __init__(self, workflow_config: WorkflowConfig, new_graph: Graph):
         self._graph = new_graph
         self._workflow_config = workflow_config
+        self._stream_actor = StreamActor()
 
     def config(self):
         return self._workflow_config
@@ -52,7 +55,11 @@ class BaseWorkFlow:
             outputs_schema: dict = None,
             inputs_transformer: Transformer = None,
             outputs_transformer: Transformer = None,
-
+            stream_inputs_schema: dict = None,
+            stream_outputs_schema: dict = None,
+            stream_inputs_transformer: Transformer = None,
+            stream_outputs_transformer: Transformer = None,
+            comp_ability: list[ComponentAbility] = None
     ) -> Self:
         if not isinstance(workflow_comp, WorkflowComponent):
             workflow_comp = self._convert_to_component(workflow_comp)
@@ -61,6 +68,12 @@ class BaseWorkFlow:
                                                                    outputs_schema=outputs_schema,
                                                                    inputs_transformer=inputs_transformer,
                                                                    outputs_transformer=outputs_transformer)
+        self._workflow_config.comp_stream_configs[comp_id] = CompIOConfig(inputs_schema=stream_inputs_schema,
+                                                                          outputs_schema=stream_outputs_schema,
+                                                                          inputs_transformer=stream_inputs_transformer,
+                                                                          outputs_transformer=stream_outputs_transformer)
+        self._workflow_config.comp_abilities[
+            comp_id] = comp_ability if comp_ability is not None else [ComponentAbility.INVOKE]
         return self
 
     def start_comp(
@@ -83,6 +96,8 @@ class BaseWorkFlow:
 
     def add_stream_connection(self, src_comp_id: str, target_comp_id: str) -> Self:
         self._graph.add_edge(src_comp_id, target_comp_id)
+        stream_executables = self._graph.get_nodes()
+        self._stream_actor.add_stream_consumer(stream_executables[target_comp_id], target_comp_id)
         if target_comp_id not in self._workflow_config.stream_edges:
             self._workflow_config.stream_edges[src_comp_id] = [target_comp_id]
         else:
@@ -126,12 +141,21 @@ class Workflow(BaseWorkFlow):
             inputs_schema: dict = None,
             outputs_schema: dict = None,
             inputs_transformer: Transformer = None,
-            outputs_transformer: Transformer = None
+            outputs_transformer: Transformer = None,
+            stream_inputs_schema: dict = None,
+            stream_outputs_schema: dict = None,
+            stream_inputs_transformer: Transformer = None,
+            stream_outputs_transformer: Transformer = None,
     ) -> Self:
         self.add_workflow_comp(end_comp_id, component, wait_for_all=False, inputs_schema=inputs_schema,
                                outputs_schema=outputs_schema,
                                inputs_transformer=inputs_transformer,
-                               outputs_transformer=outputs_transformer)
+                               outputs_transformer=outputs_transformer,
+                               stream_inputs_schema=stream_inputs_schema,
+                               stream_outputs_schema=stream_outputs_schema,
+                               stream_inputs_transformer=stream_inputs_transformer,
+                               stream_outputs_transformer=stream_outputs_transformer
+                               )
         self.end_comp(end_comp_id)
         self._end_comp_id = end_comp_id
         return self
@@ -167,15 +191,22 @@ class Workflow(BaseWorkFlow):
             context: Context,
             stream_modes: list[StreamMode] = None
     ) -> AsyncIterator[WorkflowChunk]:
+        sub_graph = isinstance(context, ExecutableContext)
+        mq_manager = MessageQueueManager(self._workflow_config.stream_edges, self._workflow_config.comp_abilities,
+                                         sub_graph)
+        context.set_queue_manager(mq_manager)
         context.set_stream_writer_manager(StreamWriterManager(stream_emitter=StreamEmitter(), modes=stream_modes))
         if context.tracer() is None and (stream_modes is None or BaseStreamMode.TRACE in stream_modes):
             tracer = Tracer()
             tracer.init(context.stream_writer_manager(), context.callback_manager())
             context.set_tracer(tracer)
         compiled_graph = self.compile(context)
-
+        self._stream_actor.init(context)
         async def stream_process():
             try:
+                logger.info("Starting stream process")
+                await self._stream_actor.run()
+                logger.info("after stream actor run")
                 await compiled_graph.invoke({INPUTS_KEY: inputs, CONFIG_KEY: None}, context)
             finally:
                 await context.stream_writer_manager().stream_emitter.close()

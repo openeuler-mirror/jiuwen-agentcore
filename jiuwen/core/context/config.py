@@ -43,7 +43,12 @@ class Config(ABC):
             self._workflow_config = workflow_config
         else:
             self._workflow_config.comp_configs.update(workflow_config.comp_configs)
+            self._workflow_config.comp_stream_configs.update(workflow_config.comp_stream_configs)
             self._workflow_config.stream_edges.update(workflow_config.stream_edges)
+            self._workflow_config.comp_abilities.update(workflow_config.comp_abilities)
+
+    def get_workflow_config(self) -> WorkflowConfig:
+        return self._workflow_config
 
     def set_comp_io_config(self, node_id: str, comp_io_config: CompIOConfig) -> None:
         """

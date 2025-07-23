@@ -4,13 +4,14 @@
 from typing import AsyncIterator
 
 from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.component.exec_workflow_base import ExecWorkflowBase
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.workflow.base import Workflow
 
 
-class ExecWorkflowComponent(WorkflowComponent, Executable):
+class ExecWorkflowComponent(WorkflowComponent, Executable, ExecWorkflowBase):
     def __init__(self, node_id: str, sub_workflow: Workflow):
         super().__init__()
         self.node_id = node_id

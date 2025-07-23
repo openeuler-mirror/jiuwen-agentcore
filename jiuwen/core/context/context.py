@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Self
 
 from jiuwen.core.context.config import Config
+from jiuwen.core.context.mq_manager import MessageQueueManager
 from jiuwen.core.context.state import State
 from jiuwen.core.context.store import Store
 from jiuwen.core.runtime.callback_manager import CallbackManager
@@ -55,6 +56,9 @@ class Context(ABC):
     def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager) -> None:
         return
 
+    def set_queue_manager(self, queue_manager: MessageQueueManager):
+        return
+
     def clone(self) -> Self:
         return None
 
@@ -70,6 +74,7 @@ class WorkflowContext(Context):
         self.__stream_writer_manager: StreamWriterManager = None
         self.__controller_context_manager = None
         self.__session_id = session_id if session_id else uuid.uuid4().hex
+        self.queue_manager: MessageQueueManager = None
 
     def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager) -> None:
         if self.__stream_writer_manager is not None:
@@ -102,6 +107,11 @@ class WorkflowContext(Context):
 
     def controller_context_manager(self):
         return self.__controller_context_manager
+
+    def set_queue_manager(self, queue_manager: MessageQueueManager):
+        if self.queue_manager is not None:
+            return
+        self.queue_manager = queue_manager
 
     def session_id(self) -> str:
         return self.__session_id

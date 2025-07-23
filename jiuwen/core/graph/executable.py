@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from typing import TypeVar, Generic, Iterator, AsyncIterator, Any
 
-from jiuwen.core.common.exception.exception import InterruptException
+from jiuwen.core.common.exception.exception import InterruptException, JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.context.context import Context
 
@@ -15,7 +15,7 @@ Input = TypeVar("Input", contravariant=True)
 Output = TypeVar("Output", contravariant=True)
 
 
-class Executable(Generic[Input, Output], ABC):
+class Executable(Generic[Input, Output]):
     memory: "ConversationMemory" = None
     memory_auto_save: bool = True
     local_params: dict = dict()
@@ -23,23 +23,18 @@ class Executable(Generic[Input, Output], ABC):
     is_global: bool = False
     global_var_name: str = ""
 
-    @abstractmethod
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        pass
+        raise JiuWenBaseException(-1, "Invoke is not supported")
 
-    @abstractmethod
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        pass
+        raise JiuWenBaseException(-1, "Invoke is not supported")
 
-    @abstractmethod
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
-        pass
+        raise JiuWenBaseException(-1, "Invoke is not supported")
 
-    @abstractmethod
     async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
-        pass
+        raise JiuWenBaseException(-1, "Invoke is not supported")
 
-    @abstractmethod
     async def interrupt(self, message: dict):
         raise InterruptException(
             error_code=StatusCode.CONTROLLER_INTERRUPTED_ERROR.code,

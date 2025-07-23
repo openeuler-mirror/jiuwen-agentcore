@@ -46,7 +46,7 @@ class PregelGraph(Graph):
         self.compiledStateGraph = None
         self.edges: list[Union[str, list[str]], str] = []
         self.waits: set[str] = set()
-        self.nodes: list[Vertex] = []
+        self.nodes: dict[str, Vertex] = {}
         self.checkpoint_saver = None
 
     def start_node(self, node_id: str) -> Self:
@@ -59,11 +59,14 @@ class PregelGraph(Graph):
 
     def add_node(self, node_id: str, node: Executable, *, wait_for_all: bool = False) -> Self:
         vertex_node = Vertex(node_id, node)
-        self.nodes.append(vertex_node)
+        self.nodes[node_id] = vertex_node
         self.pregel.add_node(node_id, vertex_node)
         if wait_for_all:
             self.waits.add(node_id)
         return self
+
+    def get_nodes(self) -> dict[str, Vertex]:
+        return {key: vertex for key, vertex in self.nodes.items()}
 
     def add_edge(self, source_node_id: Union[str, list[str]], target_node_id: str) -> Self:
         self.edges.append((source_node_id, target_node_id))
@@ -74,7 +77,7 @@ class PregelGraph(Graph):
         return self
 
     def compile(self, context: Context) -> ExecutableGraph:
-        for node in self.nodes:
+        for node_id, node in self.nodes.items():
             node.init(context)
         if self.compiledStateGraph is None:
             self._pre_compile()

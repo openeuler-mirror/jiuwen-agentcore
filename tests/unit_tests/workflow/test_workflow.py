@@ -19,11 +19,13 @@ from jiuwen.core.context.state import ReadableStateLike
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Input
 from jiuwen.core.graph.graph_state import GraphState
+from jiuwen.core.workflow.base import Workflow
+from jiuwen.core.workflow.workflow_config import WorkflowConfig, ComponentAbility
 from jiuwen.core.stream.base import BaseStreamMode
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
 from jiuwen.graph.pregel.graph import PregelGraph
-from test_mock_node import SlowNode, CountNode
+from test_mock_node import SlowNode, CountNode, StreamCompNode, CollectCompNode, MultiCollectCompNode, TransformCompNode
 from test_node import AddTenNode, CommonNode
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode, Node1, StreamNode
 
@@ -548,3 +550,54 @@ class WorkflowTest(unittest.TestCase):
         flow1.add_connection("a1", "end")
         flow1.add_connection("composite", "end")
         self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": 2})
+
+    def test_stream_comp_workflow(self):
+        # start -> a ---> b -> end
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"), inputs_schema={"a": "${a}"})
+        flow.add_workflow_comp("a", StreamCompNode("a"), inputs_schema={"value": "${start.a}"}, comp_ability=[ComponentAbility.STREAM])
+        flow.add_workflow_comp("b", CollectCompNode("b"), inputs_schema={"value": "${a.value}"}, stream_inputs_schema={"value": "${a.value}"}, comp_ability=[ComponentAbility.COLLECT])
+        flow.set_end_comp("end", MockEndNode("end"), inputs_schema={"result": "${b.value}"})
+        flow.add_connection("start", "a")
+        flow.add_stream_connection("a", "b")
+        flow.add_connection("b", "end")
+        idx = 1
+        self.assert_workflow_invoke({"a": idx}, create_context(), flow, expect_results={"result": idx * sum(range(1, 3))})
+
+    def test_transform_workflow(self):
+        # start -> a ---> b ---> c -> end
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"), inputs_schema={"a": "${a}"})
+        # a: throw 2 frames: {value: 1}, {value: 2}
+        flow.add_workflow_comp("a", StreamCompNode("a"), inputs_schema={"value": "${start.a}"}, comp_ability=[ComponentAbility.STREAM])
+        # b: transform 2 frames to c
+        flow.add_workflow_comp("b", TransformCompNode("b"), inputs_schema={"value": "${a.value}"}, stream_inputs_schema={"value": "${a.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # c: value = sum(value of frames)
+        flow.add_workflow_comp("c", CollectCompNode("c"), inputs_schema={"value": "${b.value}"}, stream_inputs_schema={"value": "${b.value}"}, comp_ability=[ComponentAbility.COLLECT])
+        flow.set_end_comp("end", MockEndNode("end"), inputs_schema={"result": "${c.value}"})
+        flow.add_connection("start", "a")
+        flow.add_stream_connection("a", "b")
+        flow.add_stream_connection("b", "c")
+        flow.add_connection("c", "end")
+
+        self.assert_workflow_invoke({"a": 1}, create_context(), flow, expect_results={"result": 3})
+
+    def test_multi_stream_workflow(self):
+        # TODO: end 节点会比 c 节点先执行，需要解决
+        # start -> a ---> c -> end
+        #    |            ^
+        #    v            |
+        #    b ------------
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("a"), inputs_schema={"a": "${a}", "b": "${b}"})
+        flow.add_workflow_comp("a", StreamCompNode("a"), inputs_schema={"value": "${start.a}"}, comp_ability=[ComponentAbility.STREAM])
+        flow.add_workflow_comp("b", StreamCompNode("b"), inputs_schema={"value": "${start.b}"}, comp_ability=[ComponentAbility.STREAM])
+        flow.add_workflow_comp("c", MultiCollectCompNode("c"), inputs_schema={"a_collect": "${a.value}", "b_collect": "${b.value}"}, comp_ability=[ComponentAbility.INVOKE, ComponentAbility.COLLECT])
+        flow.add_workflow_comp("end", MockEndNode("end"), inputs_schema={"result": "${c.a_collect}" + "${c.b_collect}"})
+        flow.add_connection("start", "a")
+        flow.add_connection("start", "b")
+        flow.add_stream_connection("a", "c")
+        flow.add_stream_connection("b", "c")
+        flow.add_connection("c", "end")
+        idx = 1
+        self.assert_workflow_invoke({"a": idx, "b": idx}, create_context(), flow, expect_results={"result": idx * sum(range(1, 3)) * 2})

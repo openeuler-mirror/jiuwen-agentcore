@@ -157,3 +157,12 @@ class TestLLMExecutableInvoke:
         # 3. 直接异步调用
         result = await flow.invoke(inputs={"a": 2}, context=context)
         assert result is not None
+
+    async def test_llm_in_workflow_stream(
+            self,
+            mock_get_model,
+            fake_model_config,
+    ):
+        context = create_context()
+
+        fake_llm = AsyncMock()
