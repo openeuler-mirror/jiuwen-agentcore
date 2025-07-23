@@ -42,6 +42,8 @@ class StatusCode(Enum):
     PLUGIN_RESPONSE_TOO_BIG_ERROR = (105004, "Plugin restful api  response too big")
     PLUGIN_RESPONSE_HTTP_CODE_ERROR = (105005, "Plugin restful api http code error")
     PLUGIN_PARAMS_CHECK_FAILED = (105006, "Plugin params check failed")
+    # start组件 101561-101590
+    WORKFLOW_START_MISSING_GLOBAL_VARIABLE_VALUE = (101501, "start component: global variable(s) defined with no value assigned:  {variable_name}")
 
     # LLM组件 101561-101590
     WORKFLOW_LLM_INIT_ERROR = (101561, "LLM component initialization error, msg = {msg}")

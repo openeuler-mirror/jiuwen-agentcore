@@ -8,7 +8,9 @@ from pydantic import BaseModel
 
 from jiuwen.core.common.constants.constant import INTERACTION
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.component.base import WorkflowComponent, StartComponent, EndComponent
+from jiuwen.core.component.base import WorkflowComponent
+from jiuwen.core.component.end_comp import End
+from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import CompIOConfig, Transformer
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.base import Graph, Router, INPUTS_KEY, CONFIG_KEY, ExecutableGraph
@@ -104,7 +106,7 @@ class Workflow(BaseWorkFlow):
     def set_start_comp(
             self,
             start_comp_id: str,
-            component: StartComponent,
+            component: Start,
             inputs_schema: dict = None,
             outputs_schema: dict = None,
             inputs_transformer: Transformer = None,
@@ -120,7 +122,7 @@ class Workflow(BaseWorkFlow):
     def set_end_comp(
             self,
             end_comp_id: str,
-            component: EndComponent,
+            component: End,
             inputs_schema: dict = None,
             outputs_schema: dict = None,
             inputs_transformer: Transformer = None,

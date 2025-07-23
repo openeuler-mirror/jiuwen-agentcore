@@ -42,13 +42,6 @@ class WorkflowComponent(ABC):
         pass
 
 
-class StartComponent(Executable):
-    pass
-
-
-class EndComponent(Executable):
-    pass
-
 
 class ComponentAbility(Enum):
     INVOKE = ("invoke", "batch in, batch out")

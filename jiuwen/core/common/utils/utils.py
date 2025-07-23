@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Dict, Any
 
 from jiuwen.core.common.exception.exception import JiuWenBaseException
@@ -210,3 +211,18 @@ class OutputFormatter:
             ValidationUtils.raise_invalid_params_error(f"响应中缺少必填字段: {', '.join(missing_keys)}")
 
         return output
+
+class TemplateUtils:
+
+    @staticmethod
+    def render_template(template: str, inputs: dict) -> str:
+        pattern = re.compile(r'\{\{(\w+)}}')
+
+        # 替换所有匹配的变量
+        return pattern.sub(lambda match: str(inputs.get(match.group(1), match.group(0))), template)
+
+    @staticmethod
+    def render_template_to_list(template: str) -> list[str | Any]:
+
+        # 替换所有匹配的变量
+        return re.split(r'(\{\{[^}]+\}\})', template)
