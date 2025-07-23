@@ -69,7 +69,7 @@ class ReActControllerUtils:
             chat_history = context.context_manager.message_mgr.get_chat_history()
         else:
             # TODO: 临时获取对话历史
-            chat_history = context.state.get(DIALOGUE_HISTORY_KEY) or list()
+            chat_history = context.state().get(DIALOGUE_HISTORY_KEY) or list()
         return chat_history
 
     @staticmethod
@@ -78,8 +78,8 @@ class ReActControllerUtils:
             context.context_manager.message_mgr.set_chat_history(current_messages)
         else:
             # TODO: 临时存储对话历史
-            context.state.update({DIALOGUE_HISTORY_KEY: current_messages})
-            context.state.commit()
+            context.state().update({DIALOGUE_HISTORY_KEY: current_messages})
+            context.state().commit()
 
     @staticmethod
     def json_loads(arguments: str):

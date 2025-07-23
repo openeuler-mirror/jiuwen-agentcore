@@ -3,8 +3,8 @@ import unittest
 
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.stream.emitter import StreamEmitter
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.stream.writer import TraceSchema, CustomSchema
@@ -69,7 +69,7 @@ class MockAgent(unittest.TestCase):
         """
 
         # workflow与agent共用一个tracer
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         context.set_tracer(tracer)
 
         # async def stream_workflow():
@@ -128,10 +128,10 @@ class MockAgent(unittest.TestCase):
 
     async def run_agent_workflow_seq_exec_stream_workflow_with_tracer(self):
         # context手动初始化tracer，agent和workflow共用一个tracer
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         context.set_stream_writer_manager(StreamWriterManager(StreamEmitter()))
         tracer = Tracer()
-        tracer.init(context.stream_writer_manager, context.callback_manager)
+        tracer.init(context.stream_writer_manager(), context.callback_manager())
         context.set_tracer(tracer)
         self.tracer = tracer
 
@@ -147,7 +147,7 @@ class MockAgent(unittest.TestCase):
                 await runner.stream(runner_span)
 
             # 模拟运行workflow
-            await self.run_workflow_seq_exec_stream_workflow_with_tracer(context.tracer)
+            await self.run_workflow_seq_exec_stream_workflow_with_tracer(context.tracer())
 
             await self.tracer.trigger("tracer_agent", "on_chain_end", span=agent_span,
                                       outputs={"outputs": "mock chain"},
@@ -158,7 +158,7 @@ class MockAgent(unittest.TestCase):
                                       )
             raise e
         finally:
-            await context.stream_writer_manager.stream_emitter.close()
+            await context.stream_writer_manager().stream_emitter.close()
 
     async def get_stream_output(self):
         async for item in self.tracer._stream_writer_manager.stream_output(need_close=True):

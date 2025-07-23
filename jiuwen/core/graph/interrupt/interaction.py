@@ -21,9 +21,9 @@ class Interaction(object):
     def __init__(self, ctx: Context):
         self.ctx = ctx
         self.idx = 0
-        self.node_id = self.ctx.state._node_id
+        self.node_id = self.ctx.state()._node_id
         self.interactive_inputs = None
-        interactive_inputs = self.ctx.state.get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + self.node_id)
+        interactive_inputs = self.ctx.state().get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + self.node_id)
         if isinstance(interactive_inputs, list):
             self.interactive_inputs = interactive_inputs
         self.latest_interactive_inputs = None
@@ -39,8 +39,8 @@ class Interaction(object):
     def user_input(self, value: Any) -> Any:
         if res := self.get_next_interactive_input():
             return res
-        if self.ctx.stream_writer_manager:
-            output_writer = self.ctx.stream_writer_manager.get_output_writer()
+        if self.ctx.stream_writer_manager():
+            output_writer = self.ctx.stream_writer_manager().get_output_writer()
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.ensure_future(
@@ -58,7 +58,7 @@ class Interaction(object):
             self.latest_interactive_inputs = None
             return res
         if self.ctx.stream_writer_manager:
-            output_writer = self.ctx.stream_writer_manager.get_output_writer()
+            output_writer = self.ctx.stream_writer_manager().get_output_writer()
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 asyncio.ensure_future(

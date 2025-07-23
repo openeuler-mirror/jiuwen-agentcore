@@ -14,30 +14,28 @@ class StreamNodeWithTracer(MockNodeBase):
         self._datas: list[dict] = datas
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        context.state.set_outputs(self.node_id, inputs)
+        context.state().set_outputs(self.node_id, inputs)
         try:
-            await context.tracer.trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id,
-                                         parent_node_id=context.parent_id,
+            await context.tracer().trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id(),
+                                         parent_node_id=context.parent_id(),
                                          on_invoke_data={"on_invoke_data": "mock with" + str(inputs)})
-            context.state.update_trace(context.executable_id,
-                                             context.tracer.get_workflow_span(context.executable_id,
-                                                                                    context.parent_id))
+            context.state().update_trace(context.tracer().get_workflow_span(context.executable_id(),
+                                                                                    context.parent_id()))
 
             # 运行时操作
 
         except Exception as e:
-            await context.tracer.trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id,
-                                         parent_node_id=context.parent_id,
+            await context.tracer().trigger("tracer_workflow", "on_invoke", invoke_id=context.executable_id(),
+                                         parent_node_id=context.parent_id(),
                                          error=e)
-            context.state.update_trace(context.executable_id,
-                                       context.tracer.get_workflow_span(context.executable_id,
-                                                                        context.parent_id))
+            context.state().update_trace(context.tracer().get_workflow_span(context.executable_id(),
+                                                                        context.parent_id()))
             raise e
 
         await asyncio.sleep(random.randint(0, 5))
         for data in self._datas:
             await asyncio.sleep(1)
-            await context.stream_writer_manager.get_custom_writer().write(data)
+            await context.stream_writer_manager().get_custom_writer().write(data)
         print("StreamNode: output = " + str(inputs))
         return inputs
 

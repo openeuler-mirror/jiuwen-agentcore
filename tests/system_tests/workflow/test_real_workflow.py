@@ -35,8 +35,8 @@ from jiuwen.core.component.questioner_comp import (
 from jiuwen.core.component.start_comp import Start
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.utils.llm.base import BaseModelInfo
 from jiuwen.core.utils.prompt.template.template import Template
@@ -239,7 +239,7 @@ class RealWorkflowTest(unittest.TestCase):
             workflow_config=WorkflowConfig(),
             graph=PregelGraph(),
         )
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
 
         # 3. 实例化各组件
         start = MockStartNode("start")
@@ -327,7 +327,7 @@ class RealWorkflowTest(unittest.TestCase):
         """
         测试LLM组件通过StreamWriter流出数据
         """
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         flow = Workflow(workflow_config=WorkflowConfig(), graph=PregelGraph())
 
         start_component = Start("s",

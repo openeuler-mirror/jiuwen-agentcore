@@ -3,14 +3,20 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import uuid
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Any, Union, Optional, Callable, Self
 
-from jiuwen.core.common.logging.base import logger
+from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.context.utils import update_dict, get_by_schema
 
 
 class ReadableStateLike(ABC):
     @abstractmethod
     def get(self, key: Union[str, list, dict]) -> Optional[Any]:
+        pass
+
+    @abstractmethod
+    def get_by_prefix(self, key: Union[str, list, dict], nested_prefix: str) -> Optional[Any]:
         pass
 
 
@@ -59,6 +65,7 @@ GLOBAL_STATE_KEY = "global_state"
 GLOBAL_STATE_UPDATES_KEY = "global_state_updates"
 COMP_STATE_KEY = "comp_state"
 COMP_STATE_UPDATES_KEY = "comp_state_updates"
+DEFAULT_NODE_ID = "default"
 
 
 class State(ABC):
@@ -68,7 +75,7 @@ class State(ABC):
             global_state: CommitState,
             comp_state: CommitState,
             trace_state: dict = {},
-            node_id: str = None
+            node_id: str = DEFAULT_NODE_ID
     ):
         self._io_state = io_state
         self._global_state = global_state
@@ -99,24 +106,24 @@ class State(ABC):
             return
         return self._io_state.get(key)
 
-    def update_trace(self, invoke_id: str, span):
-        self._trace_state.update({invoke_id: span})
+    def update_trace(self, span):
+        self._trace_state.update({self._node_id: span})
 
     def update_comp(self, data: dict) -> None:
         if self._comp_state is None:
             return
-        self._comp_state.update(self._node_id, data)
+        self._comp_state.update(self._node_id, {self._node_id: data})
 
     def get_comp(self, key: Union[str, list, dict]) -> Optional[Any]:
         if self._comp_state is None:
             return
-        return self._comp_state.get(key)
+        return self._comp_state.get_by_prefix(key, self._node_id)
 
     def set_user_inputs(self, inputs: Any) -> None:
         if self._io_state is None or inputs is None:
             return
-        self._io_state.update("", inputs)
-        self._global_state.update("", inputs)
+        self._io_state.update(self._node_id, inputs)
+        self._global_state.update(self._node_id, inputs)
         self.commit()
 
     def get_inputs_by_transformer(self, transformer: Callable) -> dict:
@@ -134,7 +141,7 @@ class State(ABC):
             return
         return self._io_state.update(node_id, {node_id: outputs})
 
-    def create_executable_state(self, node_id: str) -> Self:
+    def create_node_state(self, node_id: str) -> Self:
         return State(io_state=self._io_state, global_state=self._global_state, comp_state=self._comp_state,
                      trace_state=self._trace_state, node_id=node_id)
 
@@ -171,3 +178,87 @@ class State(ABC):
         self._io_state.set_updates(updates.get(IO_STATE_UPDATES_KEY))
         self._global_state.set_updates(updates.get(GLOBAL_STATE_UPDATES_KEY))
         self._comp_state.set_updates(updates.get(COMP_STATE_UPDATES_KEY))
+
+    def clone(self) -> Self:
+        pass
+
+
+class InMemoryStateLike(StateLike):
+    def __init__(self):
+        self._state: dict = dict()
+
+    def get(self, key: Union[str, list, dict]) -> Optional[Any]:
+        return get_by_schema(key, self._state)
+
+    def get_by_prefix(self, key: Union[str, list, dict], nested_prefix: str) -> Optional[Any]:
+        return get_by_schema(key, self._state, nested_prefix)
+
+    def get_by_transformer(self, transformer: Callable) -> Optional[Any]:
+        return transformer(self._state)
+
+    def update(self, node_id: str, data: dict) -> None:
+        if node_id is None:
+            raise JiuWenBaseException(1, "can not update state by none node_id")
+        update_dict(data, self._state)
+
+    def get_state(self) -> dict:
+        return deepcopy(self._state)
+
+    def set_state(self, state: dict) -> None:
+        if state:
+            self._state = state
+
+
+class InMemoryCommitState(CommitState):
+    def __init__(self):
+        self._state = InMemoryStateLike()
+        self._updates: dict[str, list[dict]] = dict()
+
+    def update(self, node_id: str, data: dict) -> None:
+        if node_id is None:
+            raise JiuWenBaseException(1, "can not update state by none node_id")
+        if node_id not in self._updates:
+            self._updates[node_id] = []
+        self._updates[node_id].append(data)
+
+    def commit(self) -> None:
+        for key, updates in self._updates.items():
+            for update in updates:
+                self._state.update(key, update)
+        self._updates.clear()
+
+    def rollback(self, node_id: str) -> None:
+        self._updates[node_id] = []
+
+    def get_by_transformer(self, transformer: Transformer) -> Optional[Any]:
+        return transformer(self._state)
+
+    def get(self, key: Union[str, list, dict]) -> Optional[Any]:
+        return self._state.get(key)
+
+    def get_by_prefix(self, key: Union[str, list, dict], nested_prefix: str) -> Optional[Any]:
+        return self._state.get_by_prefix(key, nested_prefix)
+
+    def get_updates(self) -> dict:
+        return self._updates
+
+    def set_updates(self, updates: dict):
+        if updates:
+            self._updates = updates
+
+    def get_state(self) -> dict:
+        return self._state.get_state()
+
+    def set_state(self, state: dict) -> None:
+        self._state.set_state(state)
+
+
+class InMemoryState(State):
+    def __init__(self, global_state: CommitState = InMemoryCommitState()):
+        super().__init__(io_state=InMemoryCommitState(),
+                         global_state=global_state,
+                         trace_state=dict(),
+                         comp_state=InMemoryCommitState())
+
+    def clone(self) -> Self:
+        return InMemoryState(global_state=self._global_state)

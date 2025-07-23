@@ -12,10 +12,10 @@ class LoopIdCallback(LoopCallback):
         self._node_id = node_id
 
     def first_in_loop(self):
-        self._context.state.update({LOOP_ID: self._node_id})
+        self._context.state().update({LOOP_ID: self._node_id})
 
     def out_loop(self):
-        self._context.state.update({LOOP_ID: None})
+        self._context.state().update({LOOP_ID: None})
 
     def start_round(self):
         pass

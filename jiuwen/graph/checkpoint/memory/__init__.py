@@ -17,6 +17,7 @@ from langgraph.checkpoint.base import (
 from langgraph.checkpoint.memory import InMemorySaver
 
 from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
+from jiuwen.core.context.context import NodeContext
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.interrupt.interactive_input import InteractiveInput
 from jiuwen.graph.checkpoint.base import BaseCheckpointer
@@ -60,23 +61,23 @@ class InMemoryCheckpointer(BaseCheckpointer[str]):
         if (state_blob := self.state_blobs.get((thread_id, checkpoint_ns, checkpoint_id, STATE_KEY))) and \
                 state_blob[0] != "empty":
             state = self.serde.loads_typed(state_blob)
-            self.ctx.state.set_state(state)
+            self.ctx.state().set_state(state)
 
         if isinstance(self.input, InteractiveInput):
             for node_id, input in self.input.user_input.items():
-                exe_ctx = self.ctx.create_executable_context(node_id)
-                interactive_input = self.ctx.state.get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + node_id)
+                exe_ctx = NodeContext(self.ctx, node_id)
+                interactive_input = self.ctx.state().get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + node_id)
                 if isinstance(interactive_input, list):
                     interactive_input.append(input)
-                    exe_ctx.state.update_comp({INTERACTIVE_INPUT: {node_id: interactive_input}})
+                    exe_ctx.state().update_comp({INTERACTIVE_INPUT: {node_id: interactive_input}})
                     continue
-                exe_ctx.state.update_comp({INTERACTIVE_INPUT: {node_id: [input]}})
-            self.ctx.state.commit()
+                exe_ctx.state().update_comp({INTERACTIVE_INPUT: {node_id: [input]}})
+            self.ctx.state().commit()
 
         if state_updates_blob := self.state_updates_blobs.get(
                 (thread_id, checkpoint_ns, checkpoint_id, STATE_UPDATES_KEY)):
             state_updates = self.serde.loads_typed(state_updates_blob)
-            self.ctx.state.set_updates(state_updates)
+            self.ctx.state().set_updates(state_updates)
 
     def save(self, config: RunnableConfig):
         thread_id: str = config["configurable"]["thread_id"]
@@ -88,11 +89,11 @@ class InMemoryCheckpointer(BaseCheckpointer[str]):
             return
 
         if self.ctx:
-            state = self.ctx.state.get_state()
+            state = self.ctx.state().get_state()
             if state_blob := self.serde.dumps_typed(state):
                 self.state_blobs[(thread_id, checkpoint_ns, checkpoint_id, STATE_KEY)] = state_blob
 
-            updates = self.ctx.state.get_updates()
+            updates = self.ctx.state().get_updates()
             if updates_blob := self.serde.dumps_typed(updates):
                 self.state_updates_blobs[
                     (thread_id, checkpoint_ns, checkpoint_id, STATE_UPDATES_KEY)] = updates_blob

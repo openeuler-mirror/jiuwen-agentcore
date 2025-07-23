@@ -214,7 +214,7 @@ def build_workflow():
         inputs={"query": {"type": "string"}},
     )
     flow = Workflow(workflow_config=workflow_config, graph=PregelGraph())
-    context = Context(config=Config(), state=InMemoryState(), store=None)
+    context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
 
     # 3. 实例化各组件
     start = MockStartNode("start")

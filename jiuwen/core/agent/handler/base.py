@@ -60,7 +60,7 @@ class AgentHandlerImpl(AgentHandler):
         context = inputs.context
         workflow_name = inputs.name
 
-        context_manager = context.controller_context_manager
+        context_manager = context.controller_context_manager()
         workflow_manager = context_manager.workflow_mgr
         workflow_metadata = self._search_workflow_metadata_by_workflow_name(workflow_name)
         workflow = workflow_manager.find_workflow_by_id_and_version(workflow_metadata.id, workflow_metadata.version)
@@ -72,7 +72,7 @@ class AgentHandlerImpl(AgentHandler):
         plugin_name = inputs.name
         plugin_args = inputs.arguments
 
-        context_manager = context.controller_context_manager
+        context_manager = context.controller_context_manager()
         workflow_manager = context_manager.workflow_mgr
         plugin = workflow_manager.find_tool_by_name(plugin_name)
         plugin_result = plugin.invoke(plugin_args)

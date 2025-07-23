@@ -15,8 +15,8 @@ from jiuwen.core.component.questioner_comp import QuestionerComponent, Questione
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
 from jiuwen.core.context.agent_context import AgentContext
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context, ExecutableContext
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.utils.llm.base import BaseModelInfo
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.tool.service_api.param import Param
@@ -175,7 +175,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             workflow_config=workflow_config,
             graph=PregelGraph(),
         )
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         # 3. 实例化各组件
         start = MockStartNode("start")
         intent = self._create_intent_detection_component()
