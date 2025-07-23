@@ -128,14 +128,13 @@ class RestfulApi(Tool):
         request_params = RequestParams(self, inputs, **kwargs)
         try:
             request_params.prepare_params()
-            response_data = _data_of(
-                requests.request(
-                    self.method, request_params.ip_address_url, headers=request_params.headers,
-                    verify=False, stream=False, params=request_params.query_params_in_inputs,
-                    timeout=constant.REQUEST_TIMEOUT,
-                    **request_params.request_arg
-                )
+            response = requests.request(
+                self.method, request_params.ip_address_url, headers=request_params.headers,
+                verify=False, stream=False, params=request_params.inputs,
+                timeout=constant.REQUEST_TIMEOUT,
+                **request_params.request_arg
             )
+            response_data = _data_of(response)
             return response_data
         except (requests.exceptions.ReadTimeout, requests.exceptions.Timeout):
             return {
