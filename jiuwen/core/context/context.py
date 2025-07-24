@@ -2,7 +2,7 @@
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 import uuid
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, Self
 
 from jiuwen.core.context.config import Config
@@ -12,90 +12,147 @@ from jiuwen.core.runtime.callback_manager import CallbackManager
 from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.tracer.tracer import Tracer
 
+
 class Context(ABC):
-    def __init__(self, config: Config, state: State, store: Store = None, session_id: str = None):
-        self._config = config
-        self._state = state
-        self._store = store
-        self._tracer = None
-        self._callback_manager = CallbackManager()
-        self._stream_writer_manager: StreamWriterManager = None
-        self._controller_context_manager = None
-        self._session_id = session_id if session_id else uuid.uuid4().hex
-
-    def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager):
-        if self._stream_writer_manager is not None:
-            return
-        self._stream_writer_manager = stream_writer_manager
-
-    def set_tracer(self, tracer: Tracer):
-        self._tracer = tracer
-
-    def set_controller_context_manager(self, controller_context_manager):
-        self._controller_context_manager = controller_context_manager
-
-    @property
+    @abstractmethod
     def config(self) -> Config:
-        return self._config
+        pass
 
-    @property
+    @abstractmethod
     def state(self) -> State:
-        return self._state
+        pass
 
-    @property
+    @abstractmethod
     def store(self) -> Store:
-        return self._store
+        pass
 
-    @property
+    @abstractmethod
     def tracer(self) -> Any:
-        return self._tracer
+        pass
 
-    @property
+    @abstractmethod
     def stream_writer_manager(self) -> StreamWriterManager:
-        return self._stream_writer_manager
+        pass
 
-    @property
+    @abstractmethod
     def callback_manager(self) -> CallbackManager:
-        return self._callback_manager
+        pass
 
-    @property
+    @abstractmethod
     def controller_context_manager(self):
-        return self._controller_context_manager
+        pass
 
-    @property
+    @abstractmethod
     def session_id(self) -> str:
-        return self._session_id
+        pass
 
-    def create_executable_context(self, node_id: str) -> Self:
-        context = ExecutableContext(self, node_id)
-        context.set_stream_writer_manager(self._stream_writer_manager)
-        context.set_tracer(self.tracer)
-        return context
+    def set_controller_context_manager(self, controller_context_manager) -> None:
+        return
+
+    def set_tracer(self, tracer: Tracer) -> None:
+        return
+
+    def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager) -> None:
+        return
+
+    def clone(self) -> Self:
+        return None
 
 
-class ExecutableContext(Context):
+class WorkflowContext(Context):
+    def __init__(self, state: State, config: Config = Config(), store: Store = None, tracer: Tracer = None,
+                 session_id: str = None):
+        self.__config = config
+        self.__state = state
+        self.__store = store
+        self.__tracer = tracer
+        self.__callback_manager = CallbackManager()
+        self.__stream_writer_manager: StreamWriterManager = None
+        self.__controller_context_manager = None
+        self.__session_id = session_id if session_id else uuid.uuid4().hex
+
+    def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager) -> None:
+        if self.__stream_writer_manager is not None:
+            return
+        self.__stream_writer_manager = stream_writer_manager
+
+    def set_tracer(self, tracer: Tracer) -> None:
+        self.__tracer = tracer
+
+    def set_controller_context_manager(self, controller_context_manager) -> None:
+        self.__controller_context_manager = controller_context_manager
+
+    def config(self) -> Config:
+        return self.__config
+
+    def state(self) -> State:
+        return self.__state
+
+    def store(self) -> Store:
+        return self.__store
+
+    def tracer(self) -> Any:
+        return self.__tracer
+
+    def stream_writer_manager(self) -> StreamWriterManager:
+        return self.__stream_writer_manager
+
+    def callback_manager(self) -> CallbackManager:
+        return self.__callback_manager
+
+    def controller_context_manager(self):
+        return self.__controller_context_manager
+
+    def session_id(self) -> str:
+        return self.__session_id
+
+    def clone(self) -> Self:
+        return WorkflowContext(state=self.state().clone(), session_id=self.session_id())
+
+
+class NodeContext(Context):
     def __init__(self, context: Context, node_id: str):
-        self._node_id = node_id
-        self._parent_id = context.executable_id if isinstance(context, ExecutableContext) else None
-        self._executable_id = self._parent_id + "." + node_id if self._parent_id is not None else node_id
-        super().__init__(context.config, context.state.create_executable_state(self._executable_id), context.store)
-        self._parent_context = context
+        self.__node_id = node_id
+        self.__parent_id = context.executable_id() if isinstance(context, NodeContext) else ''
+        self.__executable_id = self.__parent_id + "." + node_id if len(self.__parent_id) != 0 else node_id
+        self.__state = context.state().create_node_state(self.__executable_id)
+        self.__context = context
 
-    @property
     def node_id(self):
-        return self._node_id
+        return self.__node_id
 
-    @property
     def executable_id(self):
-        return self._executable_id
+        return self.__executable_id
 
-    @property
     def parent_id(self):
-        return self._parent_id
+        return self.__parent_id
 
-    @property
+    def tracer(self) -> Any:
+        return self.__context.tracer()
+
+    def state(self) -> State:
+        return self.__state
+
+    def config(self) -> Config:
+        return self.__context.config()
+
+    def store(self) -> Store:
+        return self.__context.store()
+
+    def stream_writer_manager(self) -> StreamWriterManager:
+        return self.__context.stream_writer_manager()
+
+    def callback_manager(self) -> CallbackManager:
+        return self.__context.callback_manager()
+
+    def controller_context_manager(self):
+        return self.__context.controller_context_manager()
+
+    def session_id(self) -> str:
+        return self.__context.session_id()
+
     def parent_context(self):
-        return self._parent_context
+        return self.__context
 
 class ContextSetter(ABC):
     def __init__(self, context: Context = None):

@@ -113,7 +113,7 @@ class IntentDetectionExecutable(Executable):
         """从上下文中获取对话历史"""
         chat_history = []
         if self._context:
-            chat_history: list = self._context.state.get(WORKFLOW_CHAT_HISTORY)
+            chat_history: list = self._context.state().get(WORKFLOW_CHAT_HISTORY)
         return chat_history
 
     def _get_category_info(self):
@@ -212,7 +212,7 @@ class IntentDetectionExecutable(Executable):
     def get_llm_result(self, current_inputs):
         """获取llm"""
         llm_inputs = self._pre_process(current_inputs)
-        logger.info(f"[%s] intent detection llm_inputs: %s", self._context.executable_id, llm_inputs)
+        logger.info(f"[%s] intent detection llm_inputs: %s", self._context.executable_id(), llm_inputs)
         current_inputs.update({LLM_INPUTS: llm_inputs})
         try:
             llm_output = self._llm.invoke(llm_inputs).content
@@ -244,7 +244,7 @@ class IntentDetectionExecutable(Executable):
 
         # 获取大模型结果
         llm_output = self.get_llm_result(current_inputs)
-        logger.info(f"[%s] intent detection output_inputs: %s", self._context.executable_id, llm_output)
+        logger.info(f"[%s] intent detection output_inputs: %s", self._context.executable_id(), llm_output)
         # 后处理意图检测结果
         intent_res = self._handle_detection_result(llm_output)
         return intent_res

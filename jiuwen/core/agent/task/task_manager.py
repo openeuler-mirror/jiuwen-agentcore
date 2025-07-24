@@ -4,8 +4,8 @@ from enum import Enum
 from jiuwen.core.agent.task.task import Task
 from jiuwen.core.context.agent_context import AgentContext
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context, ExecutableContext
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import NodeContext, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 
 
 class TaskStatus(Enum):
@@ -33,14 +33,13 @@ class TaskManager:
             return self._tasks[task_id]
 
         # 新建context
-        context = Context(config=Config(),
+        context = WorkflowContext(config=Config(),
                           state=InMemoryState(),
                           store=self.agent_context.store)
-        executable_context = ExecutableContext(context=context, node_id="agent")
-        task = Task(task_id, executable_context)
+        task = Task(task_id, context)
 
         self._tasks[task_id] = task
-        self.agent_context.context_map[task_id] = executable_context
+        self.agent_context.context_map[task_id] = context
         return task
 
     def get_task(self, conversation_id: str) -> Optional[Task]:

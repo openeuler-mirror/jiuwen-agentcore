@@ -13,14 +13,12 @@ from jiuwen.core.component.loop_comp import LoopGroup, LoopComponent
 from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.context.state import ReadableStateLike
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Input
 from jiuwen.core.graph.graph_state import GraphState
-from jiuwen.core.workflow.base import Workflow
-from jiuwen.core.workflow.workflow_config import WorkflowConfig
 from jiuwen.core.stream.base import BaseStreamMode
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
@@ -31,7 +29,7 @@ from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode,
 
 
 def create_context() -> Context:
-    return Context(config=Config(), state=InMemoryState(), store=None)
+    return WorkflowContext(config=Config(), state=InMemoryState(), store=None)
 
 
 def create_graph() -> Graph:
@@ -549,4 +547,4 @@ class WorkflowTest(unittest.TestCase):
         flow1.add_connection("start", "composite")
         flow1.add_connection("a1", "end")
         flow1.add_connection("composite", "end")
-        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": None})
+        self.assert_workflow_invoke({"a1": 1, "a2": 2}, create_context(), flow1, expect_results={"b1": 1, "b2": 2})

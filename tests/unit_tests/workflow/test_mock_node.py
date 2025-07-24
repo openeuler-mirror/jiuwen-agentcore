@@ -5,9 +5,7 @@ from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.start_comp import Start
-from jiuwen.core.context.config import Config
 from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.stream.writer import OutputSchema
 from jiuwen.core.workflow.base import Workflow
@@ -15,7 +13,7 @@ from jiuwen.core.graph.interrupt.interaction import Interaction
 
 
 class MockNodeBase(Executable, WorkflowComponent):
-    def __init__(self, node_id: str):
+    def __init__(self, node_id: str = ''):
         super().__init__()
         self.node_id = node_id
 
@@ -43,8 +41,7 @@ class MockStartNode(Start):
         super().__init__(node_id, {})
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        context.state.set_outputs(self.node_id, inputs)
-        logger.info("start: output{%s} ", inputs)
+        context.state().set_outputs(self.node_id, inputs)
         return inputs
 
 
@@ -54,7 +51,6 @@ class MockEndNode(End):
         self.node_id = node_id
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        logger.info("endNode: output %s ", inputs)
         return inputs
 
 
@@ -63,7 +59,6 @@ class Node1(MockNodeBase):
         super().__init__(node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        logger.info(self.node_id + ": inputs = " + str(inputs))
         return inputs
 
 
@@ -86,7 +81,6 @@ class SlowNode(MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         await asyncio.sleep(self._wait)
-        logger.info(self.node_id + ": input = " + str(inputs))
         return inputs
 
 
@@ -100,7 +94,7 @@ class StreamNode(MockNodeBase):
         for data in self._datas:
             await asyncio.sleep(0.1)
             logger.info(f"StreamNode[{self._node_id}], stream frame: {data}")
-            await context.stream_writer_manager.get_custom_writer().write(data)
+            await context.stream_writer_manager().get_custom_writer().write(data)
         logger.info(f"StreamNode[{self._node_id}], batch output: {inputs}")
         return inputs
 
@@ -114,7 +108,7 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         async for chunk in self._sub_workflow.stream({"a": 1, "b": "haha"}, context):
             logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], stream frame: {chunk}")
-            await context.stream_writer_manager.get_custom_writer().write(chunk)
+            await context.stream_writer_manager().get_custom_writer().write(chunk)
         logger.info(f"StreamNodeWithSubWorkflow[{self._node_id}], batch output: {inputs}")
         return inputs
 
@@ -126,11 +120,11 @@ class MockStartNode4Cp(Start, MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         self.runtime += 1
-        value = context.state.get("a")
+        value = context.state().get("a")
         if value is not None:
             assert Exception("value is not None")
         print("start: output = " + str(inputs))
-        context.state.update({"a": 10})
+        context.state().update({"a": 10})
         return inputs
 
 
@@ -141,7 +135,7 @@ class Node4Cp(MockNodeBase):
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         self.runtime += 1
-        value = context.state.get("a")
+        value = context.state().get("a")
         if value < 20:
             raise Exception("value < 20")
         return inputs
@@ -196,7 +190,7 @@ class InteractiveNode4StreamCp(MockNodeBase):
     async def invoke(self, inputs: Input, context: Context) -> Output:
         interaction = Interaction(ctx=context)
         result = interaction.user_input("Please enter any key")
-        stream_writer = context.stream_writer_manager.get_output_writer()
+        stream_writer = context.stream_writer_manager().get_output_writer()
         loop = asyncio.get_event_loop()
         if loop.is_running():
             asyncio.ensure_future(

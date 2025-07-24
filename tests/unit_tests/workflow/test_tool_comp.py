@@ -4,8 +4,8 @@ import pytest
 
 from jiuwen.core.component.tool_comp import ToolComponentConfig, ToolExecutable, ToolComponent
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.utils.tool.service_api.param import Param
 from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
@@ -77,7 +77,7 @@ async def test_tool_comp_invoke(mock_get_tool, mock_request, mock_tool, mock_too
 async def test_tool_comp_in_workflow(mock_get_tool, mock_invoke, mock_tool, mock_tool_config, fake_ctx):
     mock_get_tool.return_value = mock_tool
     mock_invoke.return_value = 'res'
-    context = Context(config=Config(), state=InMemoryState(), store=None, tracer=None)
+    context = WorkflowContext(config=Config(), state=InMemoryState(), store=None, tracer=None)
     flow = create_flow()
 
     start_component = MockStartNode("s")

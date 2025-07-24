@@ -280,7 +280,7 @@ class QuestionerDirectReplyHandler:
     def _get_latest_chat_history(self, context) -> List:
         result = list()
         if self._config.with_chat_history:
-            raw_chat_history = context.store.read(WORKFLOW_CHAT_HISTORY) or list()
+            raw_chat_history = context.store().read(WORKFLOW_CHAT_HISTORY) or list()
             if raw_chat_history:
                 result = QuestionerUtils.get_latest_k_rounds_chat(raw_chat_history, self._config.chat_history_max_rounds)
         if not result or "user" == result[-1].get("role", ""):
@@ -384,7 +384,7 @@ class QuestionerExecutable(Executable):
 
     @staticmethod
     def _load_state_from_context(context) -> QuestionerState:
-        state_dict = context.state.get(QUESTIONER_STATE_KEY)
+        state_dict = context.state().get(QUESTIONER_STATE_KEY)
         if state_dict:
             return QuestionerState.deserialize(state_dict)
         return QuestionerState()
@@ -392,7 +392,7 @@ class QuestionerExecutable(Executable):
     @staticmethod
     def _store_state_to_context(state: QuestionerState, context):
         state_dict = state.serialize()
-        context.state.update({QUESTIONER_STATE_KEY: state_dict})
+        context.state().update({QUESTIONER_STATE_KEY: state_dict})
 
     def state(self, state: QuestionerState):
         self._state = state

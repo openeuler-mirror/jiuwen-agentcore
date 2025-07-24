@@ -9,7 +9,6 @@ from jiuwen.core.component.workflow_comp import ExecWorkflowComponent
 from jiuwen.core.graph.executable import Input
 from jiuwen.core.graph.interrupt.interactive_input import InteractiveInput
 from jiuwen.core.stream.base import BaseStreamMode
-from jiuwen.core.stream.writer import OutputSchema
 
 fake_base = types.ModuleType("base")
 fake_base.logger = Mock()
@@ -30,8 +29,8 @@ from jiuwen.core.component.loop_callback.output import OutputCallback
 from jiuwen.core.component.loop_comp import LoopGroup, LoopComponent
 from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
 from jiuwen.graph.pregel.graph import PregelGraph
@@ -41,7 +40,7 @@ from tests.unit_tests.workflow.test_mock_node import InteractiveNode4StreamCp, M
 
 
 def create_context(session_id: str = None) -> Context:
-    return Context(config=Config(), state=InMemoryState(), store=None, session_id=session_id)
+    return WorkflowContext(config=Config(), state=InMemoryState(), store=None, session_id=session_id)
 
 
 def create_graph() -> Graph:

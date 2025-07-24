@@ -20,10 +20,10 @@ class ArrayCondition(Condition):
         self._arrays_root = node_id + NESTED_PATH_SPLIT + DEFAULT_PATH_ARRAY_LOOP_VAR
 
     def init(self):
-        self._context.state.update_io({self._arrays_root: {}})
+        self._context.state().update_io({self._arrays_root: {}})
 
     def __call__(self) -> bool:
-        current_idx = self._context.state.get_io(self._index_path) + 1
+        current_idx = self._context.state().get_io(self._index_path) + 1
         min_length = DEFAULT_MAX_LOOP_NUMBER
         updates: dict[str, Any] = {}
         for key, array_info in self._arrays.items():
@@ -34,7 +34,7 @@ class ArrayCondition(Condition):
             elif isinstance(array_info, str):
                 ref_str = extract_origin_key(array_info)
                 if ref_str != "":
-                    arr = self._context.state.get(ref_str)
+                    arr = self._context.state().get(ref_str)
                 else:
                     raise RuntimeError("error value: " + array_info + " is not a array path")
             else:
@@ -44,5 +44,5 @@ class ArrayCondition(Condition):
                 return False
             updates[key_path] = arr[current_idx]
 
-        self._context.state.update_io(updates)
+        self._context.state().update_io(updates)
         return True

@@ -5,7 +5,7 @@ from typing import AsyncIterator, Iterator
 
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent
-from jiuwen.core.context.context import Context, ExecutableContext
+from jiuwen.core.context.context import Context, NodeContext
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.executable import Executable, Input, Output
 

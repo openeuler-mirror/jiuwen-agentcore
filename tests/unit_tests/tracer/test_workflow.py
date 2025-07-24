@@ -29,8 +29,8 @@ import unittest
 from collections.abc import Callable
 
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import Context, WorkflowContext
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.workflow.base import Workflow
 from jiuwen.core.workflow.workflow_config import WorkflowConfig
@@ -41,7 +41,7 @@ from jiuwen.core.stream.writer import TraceSchema
 
 
 def create_context_with_tracer() -> Context:
-    return Context(config=Config(), state=InMemoryState(), store=None)
+    return WorkflowContext(config=Config(), state=InMemoryState(), store=None)
 
 
 def create_graph() -> Graph:

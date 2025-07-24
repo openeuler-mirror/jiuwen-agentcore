@@ -24,24 +24,9 @@ def update_dict(update: dict, source: dict) -> None:
         current_key, current = root_to_path(key, source, create_if_absent=True)
         update_by_key(current_key, value, current)
 
-    def get(self, key: Union[str, list, dict]) -> Optional[Any]:
-        if isinstance(key, str):
-            origin_key = extract_origin_key(key)
-            return get_value_by_nested_path(origin_key, self._state)
-        elif isinstance(key, dict):
-            result = {}
-            for target_key, target_schema in key.items():
-                result[target_key] = self.get(target_schema)
-            return result
-        elif isinstance(key, list):
-            result = []
-            for item in key:
-                result.append(self.get(item))
-            return result
-        else:
-            return key
-
-def get_by_schema(schema: Union[str, list, dict], data: dict) -> Any:
+def get_by_schema(schema: Union[str, list, dict], data: dict, nested_path: str = None) -> Any:
+    if nested_path is not None:
+        data = get_value_by_nested_path(nested_path, data)
     if schema is None or data is None:
         return None
     if isinstance(schema, str):

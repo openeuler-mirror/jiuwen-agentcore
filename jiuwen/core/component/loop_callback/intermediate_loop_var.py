@@ -4,7 +4,6 @@
 from typing import Union, Any
 
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
-from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT, is_ref_path, extract_origin_key
 
 
@@ -24,15 +23,15 @@ class IntermediateLoopVarCallback(LoopCallback):
             if isinstance(value, str):
                 if is_ref_path(value):
                     ref_str = extract_origin_key(value)
-                    update = self._context.state.get(ref_str)
+                    update = self._context.state().get(ref_str)
                 else:
                     update = value
             else:
                 update = value
-            self._context.state.update_io({path: update})
+            self._context.state().update_io({path: update})
 
     def out_loop(self):
-        self._context.state.update_io({self._intermediate_loop_var_root: {}})
+        self._context.state().update_io({self._intermediate_loop_var_root: {}})
 
     def start_round(self):
         pass

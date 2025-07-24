@@ -104,7 +104,7 @@ class ReActAgent(Agent):
         return completed_sub_tasks
 
     def _load_state_from_context(self, context: Context):
-        state_dict = context.state.get(REACT_AGENT_STATE_KEY)
+        state_dict = context.state().get(REACT_AGENT_STATE_KEY)
         if state_dict:
             self._state = ReActState.deserialize(state_dict)
         else:
@@ -112,8 +112,8 @@ class ReActAgent(Agent):
 
     def _store_state_to_context(self, context):
         state_dict = self._state.serialize()
-        context.state.update({REACT_AGENT_STATE_KEY: state_dict})
-        context.state.commit()
+        context.state().update({REACT_AGENT_STATE_KEY: state_dict})
+        context.state().commit()
 
     @staticmethod
     def _update_chat_history_in_context(completed_sub_tasks: List[SubTask], context):

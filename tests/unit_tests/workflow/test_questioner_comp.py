@@ -8,8 +8,8 @@ from jiuwen.core.component.questioner_comp import QuestionerInteractState, Field
     QuestionerComponent
 from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.memory.base import InMemoryState
+from jiuwen.core.context.context import WorkflowContext, Context
+from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.stream.writer import TraceSchema
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.workflow.base import Workflow
@@ -46,7 +46,7 @@ class QuestionerTest(unittest.TestCase):
         mock_llm_inputs.return_value = mock_prompt_template
         mock_extraction.return_value = dict(location="hangzhou")
 
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         flow = create_flow()
 
         key_fields = [
@@ -106,7 +106,7 @@ class QuestionerTest(unittest.TestCase):
         state = QuestionerInteractState(extracted_key_fields=dict(location="hangzhou"))
         mock_state_from_context.return_value = state
 
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         flow = create_flow()
 
         key_fields = [
@@ -163,7 +163,7 @@ class QuestionerTest(unittest.TestCase):
         mock_llm_inputs.return_value = mock_prompt_template
         mock_extraction.return_value = dict(location="hangzhou")
 
-        context = Context(config=Config(), state=InMemoryState(), store=None)
+        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         flow = create_flow()
 
         key_fields = [

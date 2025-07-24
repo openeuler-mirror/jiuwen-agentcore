@@ -13,7 +13,7 @@ from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
 from jiuwen.core.component.loop_callback.loop_id import LoopIdCallback
 from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.context.config import WorkflowConfig
-from jiuwen.core.context.context import Context, ContextSetter, ExecutableContext
+from jiuwen.core.context.context import Context, ContextSetter, NodeContext
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Output, Input, Executable
@@ -57,10 +57,10 @@ class LoopGroup(BaseWorkFlow, Executable):
         return self
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        if isinstance(context, ExecutableContext) and isinstance(context.parent_context, ExecutableContext):
+        if isinstance(context, NodeContext) and isinstance(context.parent_context(), NodeContext):
             if self.compiled is None:
-                self.compiled = self.compile(context.parent_context.parent_context)
-            await self.compiled.invoke(inputs, context.parent_context.parent_context)
+                self.compiled = self.compile(context.parent_context().parent_context())
+            await self.compiled.invoke(inputs, context.parent_context().parent_context())
         return None
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
@@ -134,10 +134,10 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
         self._context_setters.extend(set_variable_components)
 
     def init(self):
-        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
-        self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
+        self._context.state().update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})
+        self._context.state().update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
         self._condition.init()
-        self._context.state.commit()
+        self._context.state().commit()
 
     def to_executable(self) -> Executable:
         return self
@@ -165,39 +165,39 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
                 callback.out_loop()
 
         if continue_loop:
-            self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: self._context.state.get_io(
+            self._context.state().update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: self._context.state().get_io(
                 self._context_root + NESTED_PATH_SPLIT + INDEX) + 1})
             return in_loop
 
-        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
+        self._context.state().update_comp({self._context_root + NESTED_PATH_SPLIT + FIRST_IN_LOOP: True})
         self.init()
         return out_loop
 
     def first_in_loop(self) -> bool:
-        self._context.state.update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
-        index = self._context.state.get_io(self._context_root + NESTED_PATH_SPLIT + INDEX)
+        self._context.state().update_io({self._context_root + NESTED_PATH_SPLIT + INDEX: -1})
+        index = self._context.state().get_io(self._context_root + NESTED_PATH_SPLIT + INDEX)
         if index is None or index == -1:
             return True
         return False
 
     def is_broken(self) -> bool:
-        _is_broken = self._context.state.get_comp(self._context_root + NESTED_PATH_SPLIT + BROKEN)
+        _is_broken = self._context.state().get_comp(self._context_root + NESTED_PATH_SPLIT + BROKEN)
         if isinstance(_is_broken, bool):
             return _is_broken
         return False
 
     def break_loop(self):
-        self._context.state.update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
+        self._context.state().update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: True})
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for context_setter in self._context_setters:
-            context_setter.set_context(context)
+            context_setter.set_context(NodeContext(context, self._node_id))
 
         compiled = self._graph.compile(self._context)
-        if isinstance(context, ExecutableContext):
+        if isinstance(context, NodeContext):
             if isinstance(self._body, LoopGroup):
-                self._body.compiled = self._body.compile(context.parent_context)
-            await compiled.invoke(inputs, context.parent_context)
+                self._body.compiled = self._body.compile(context.parent_context())
+            await compiled.invoke(inputs, context.parent_context())
         return None
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:

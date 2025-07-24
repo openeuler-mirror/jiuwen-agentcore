@@ -4,7 +4,6 @@
 from typing import Union
 
 from jiuwen.core.component.condition.condition import Condition, INDEX
-from jiuwen.core.context.context import Context
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 
 
@@ -19,11 +18,11 @@ class NumberCondition(Condition):
         pass
 
     def __call__(self) -> bool:
-        current_idx = self._context.state.get(self._index_path) + 1
+        current_idx = self._context.state().get(self._index_path) + 1
         limit_num: int
         if isinstance(self._limit, int):
             limit_num = self._limit
         else:
-            limit_num = self._context.state.get(self._limit)
+            limit_num = self._context.state().get(self._limit)
 
         return current_idx < limit_num

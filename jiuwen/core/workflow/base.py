@@ -94,7 +94,7 @@ class BaseWorkFlow:
         return self
 
     def compile(self, context: Context) -> ExecutableGraph:
-        context.config.set_workflow_config(self._workflow_config)
+        context.config().set_workflow_config(self._workflow_config)
         return self._graph.compile(context)
 
 
@@ -138,10 +138,10 @@ class Workflow(BaseWorkFlow):
 
     async def sub_invoke(self, inputs: Input, context: Context, config: Any = None) -> Output:
         logger.info("begin to sub_invoke, input=%s", inputs)
-        context.config.set_workflow_config(self._workflow_config)
+        context.config().set_workflow_config(self._workflow_config)
         compiled_graph = self._graph.compile(context)
         await compiled_graph.invoke({INPUTS_KEY: inputs, CONFIG_KEY: config}, context)
-        results = context.state.get_outputs(self._end_comp_id)
+        results = context.state().get_outputs(self._end_comp_id)
         logger.info("end to sub_invoke, results=%s", results)
         return results
 
@@ -152,7 +152,7 @@ class Workflow(BaseWorkFlow):
             chunks.append(chunk)
 
         results = chunks[-1].model_dump() if (len(chunks) >= 1 and isinstance(chunks[-1], OutputSchema) and
-                                              chunks[-1].type == INTERACTION) else context.state.get_outputs(
+                                              chunks[-1].type == INTERACTION) else context.state().get_outputs(
             self._end_comp_id)
         logger.info("end to invoke, results=%s", results)
         return results
@@ -164,9 +164,9 @@ class Workflow(BaseWorkFlow):
             stream_modes: list[StreamMode] = None
     ) -> AsyncIterator[WorkflowChunk]:
         context.set_stream_writer_manager(StreamWriterManager(stream_emitter=StreamEmitter(), modes=stream_modes))
-        if context.tracer is None and (stream_modes is None or BaseStreamMode.TRACE in stream_modes):
+        if context.tracer() is None and (stream_modes is None or BaseStreamMode.TRACE in stream_modes):
             tracer = Tracer()
-            tracer.init(context.stream_writer_manager, context.callback_manager)
+            tracer.init(context.stream_writer_manager(), context.callback_manager())
             context.set_tracer(tracer)
         compiled_graph = self.compile(context)
 
@@ -174,10 +174,10 @@ class Workflow(BaseWorkFlow):
             try:
                 await compiled_graph.invoke({INPUTS_KEY: inputs, CONFIG_KEY: None}, context)
             finally:
-                await context.stream_writer_manager.stream_emitter.close()
+                await context.stream_writer_manager().stream_emitter.close()
 
         task = asyncio.create_task(stream_process())
-        async for chunk in context.stream_writer_manager.stream_output():
+        async for chunk in context.stream_writer_manager().stream_output():
             yield chunk
 
         try:

@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.pregel.loop import PregelLoop
 
 from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
-from jiuwen.core.context.context import Context
+from jiuwen.core.context.context import Context, NodeContext
 from jiuwen.core.graph.base import Graph, Router, ExecutableGraph
 from jiuwen.core.graph.executable import Executable, Input, Output
 from jiuwen.core.graph.graph_state import GraphState
@@ -24,7 +24,7 @@ class AfterProcessor:
         self._after_tick = after_tick
 
     def after_tick(self, loop: PregelLoop, context: Context) -> None:
-        context.state.commit()
+        context.state().commit()
         return self._after_tick(loop)
 
 
@@ -113,7 +113,7 @@ class CompiledGraph(ExecutableGraph):
         is_main = False
         if config is None:
             is_main = True
-            config = {"configurable": {"thread_id": context.session_id}}
+            config = {"configurable": {"thread_id": context.session_id()}}
 
             if isinstance(inputs, InteractiveInput) and self._checkpoint_saver:
                 self._checkpoint_saver.register_context(context)
@@ -121,8 +121,11 @@ class CompiledGraph(ExecutableGraph):
 
                 self._checkpoint_saver.recover(config)
             else:
-                context.state.set_user_inputs(inputs)
-                context.state.commit()
+                context.state().set_user_inputs(inputs)
+                context.state().commit()
+        else:
+            context.state().set_user_inputs(inputs)
+            context.state().commit()
         graph_inputs = None if isinstance(inputs, InteractiveInput) else {"source_node_id": []}
 
         try:
@@ -135,10 +138,10 @@ class CompiledGraph(ExecutableGraph):
             raise
 
         if result.get(INTERRUPT) is None and self._checkpoint_saver:
-            executable_context = context.create_executable_context("")
-            executable_context.state.update_comp({INTERACTIVE_INPUT: None})
-            executable_context.state.commit()
-            self._checkpoint_saver.delete_thread(context.session_id)
+            executable_context = NodeContext(context, node_id="")
+            executable_context.state().update_comp({INTERACTIVE_INPUT: None})
+            executable_context.state().commit()
+            self._checkpoint_saver.delete_thread(context.session_id())
         else:
             if is_main:
                 self._checkpoint_saver.save(config)

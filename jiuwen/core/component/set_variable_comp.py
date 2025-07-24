@@ -6,7 +6,7 @@ from functools import partial
 from typing import AsyncIterator, Iterator, Any
 
 from jiuwen.core.component.base import WorkflowComponent
-from jiuwen.core.context.context import Context, ContextSetter
+from jiuwen.core.context.context import Context, ContextSetter, NodeContext
 from jiuwen.core.context.utils import extract_origin_key, is_ref_path
 from jiuwen.core.graph.executable import Executable, Input, Output
 
@@ -19,7 +19,7 @@ class SetVariableComponent(WorkflowComponent, Executable, ContextSetter):
         self._variable_mapping = variable_mapping
 
     def set_context(self, context: Context):
-        self._context = context.create_executable_context(self._node_id)
+        self._context = NodeContext(context, self._node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for left, right in self._variable_mapping.items():
@@ -28,9 +28,9 @@ class SetVariableComponent(WorkflowComponent, Executable, ContextSetter):
                 left_ref_str = left
             if isinstance(right, str) and is_ref_path(right):
                 ref_str = extract_origin_key(right)
-                self._context.state.update_io({left_ref_str: self._context.state.get(ref_str)})
+                self._context.state().update_io({left_ref_str: self._context.state().get(ref_str)})
                 continue
-            self._context.state.update_io({left_ref_str: right})
+            self._context.state().update_io({left_ref_str: right})
 
         return None
 
