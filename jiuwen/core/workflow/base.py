@@ -12,7 +12,7 @@ from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.start_comp import Start
 from jiuwen.core.context.config import CompIOConfig, Transformer
-from jiuwen.core.context.context import Context, ExecutableContext
+from jiuwen.core.context.context import Context
 from jiuwen.core.context.mq_manager import MessageQueueManager
 from jiuwen.core.graph.base import Graph, Router, INPUTS_KEY, CONFIG_KEY, ExecutableGraph
 from jiuwen.core.graph.executable import Executable, Input, Output
@@ -191,9 +191,8 @@ class Workflow(BaseWorkFlow):
             context: Context,
             stream_modes: list[StreamMode] = None
     ) -> AsyncIterator[WorkflowChunk]:
-        sub_graph = isinstance(context, ExecutableContext)
         mq_manager = MessageQueueManager(self._workflow_config.stream_edges, self._workflow_config.comp_abilities,
-                                         sub_graph)
+                                         False)
         context.set_queue_manager(mq_manager)
         context.set_stream_writer_manager(StreamWriterManager(stream_emitter=StreamEmitter(), modes=stream_modes))
         if context.tracer() is None and (stream_modes is None or BaseStreamMode.TRACE in stream_modes):
@@ -204,9 +203,7 @@ class Workflow(BaseWorkFlow):
         self._stream_actor.init(context)
         async def stream_process():
             try:
-                logger.info("Starting stream process")
                 await self._stream_actor.run()
-                logger.info("after stream actor run")
                 await compiled_graph.invoke({INPUTS_KEY: inputs, CONFIG_KEY: None}, context)
             finally:
                 await context.stream_writer_manager().stream_emitter.close()

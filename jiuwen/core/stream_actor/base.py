@@ -1,7 +1,6 @@
 import asyncio
 
 from jiuwen.core.context.context import Context
-from jiuwen.core.graph.executable import Executable
 from jiuwen.core.graph.vertex import Vertex
 
 

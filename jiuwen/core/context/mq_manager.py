@@ -12,9 +12,6 @@ class StreamTransform:
         return transformer(origin_message)
 
     def get_by_default_transformer(self, origin_message: dict, stream_inputs_schema: dict) -> dict:
-        # nodeC schema: {"ca": "${nodeA.a_output}", "cb": "${nodeB.b_output}"
-        # 根据stream_inputs_schema进行封装数据{"nodeA": {"a_output": "a"}}
-        # 或者{"nodeB": {"b_output": "b"}}转换成{"ca": "a"}或者{"cb": "b"}
         return get_by_schema(stream_inputs_schema, origin_message)
 
 

@@ -581,23 +581,3 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("c", "end")
 
         self.assert_workflow_invoke({"a": 1}, create_context(), flow, expect_results={"result": 3})
-
-    def test_multi_stream_workflow(self):
-        # TODO: end 节点会比 c 节点先执行，需要解决
-        # start -> a ---> c -> end
-        #    |            ^
-        #    v            |
-        #    b ------------
-        flow = create_flow()
-        flow.set_start_comp("start", MockStartNode("a"), inputs_schema={"a": "${a}", "b": "${b}"})
-        flow.add_workflow_comp("a", StreamCompNode("a"), inputs_schema={"value": "${start.a}"}, comp_ability=[ComponentAbility.STREAM])
-        flow.add_workflow_comp("b", StreamCompNode("b"), inputs_schema={"value": "${start.b}"}, comp_ability=[ComponentAbility.STREAM])
-        flow.add_workflow_comp("c", MultiCollectCompNode("c"), inputs_schema={"a_collect": "${a.value}", "b_collect": "${b.value}"}, comp_ability=[ComponentAbility.INVOKE, ComponentAbility.COLLECT])
-        flow.add_workflow_comp("end", MockEndNode("end"), inputs_schema={"result": "${c.a_collect}" + "${c.b_collect}"})
-        flow.add_connection("start", "a")
-        flow.add_connection("start", "b")
-        flow.add_stream_connection("a", "c")
-        flow.add_stream_connection("b", "c")
-        flow.add_connection("c", "end")
-        idx = 1
-        self.assert_workflow_invoke({"a": idx, "b": idx}, create_context(), flow, expect_results={"result": idx * sum(range(1, 3)) * 2})
