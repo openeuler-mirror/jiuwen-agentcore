@@ -16,6 +16,7 @@ from jiuwen.core.component.base import ComponentConfig, WorkflowComponent
 from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Input, Output
+from jiuwen.core.graph.interrupt.interaction import Interaction
 from jiuwen.core.utils.llm.base import BaseChatModel
 from jiuwen.core.utils.llm.messages import BaseMessage
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
@@ -231,7 +232,7 @@ class QuestionerDirectReplyHandler:
 
     def _handle_user_interact_state(self, inputs, context):
         output = QuestionerOutput()
-        self._query = inputs.get("query", "")
+        self._query = Interaction(ctx=context).user_input("")
         chat_history = self._get_latest_chat_history(context)
         user_response = chat_history[-1].get("content", "") if chat_history else ""
 
@@ -274,6 +275,9 @@ class QuestionerDirectReplyHandler:
 
     def _repeat_extract_from_chat_history(self, chat_history, output: QuestionerOutput) -> bool:
         self._invoke_llm_and_parse_result(chat_history, output)
+
+        self._update_param_default_value(output)
+        self._update_state_of_key_fields(output.key_fields)
 
         return self._check_if_continue_ask(output)
 
@@ -393,13 +397,14 @@ class QuestionerExecutable(Executable):
     def _store_state_to_context(state: QuestionerState, context):
         state_dict = state.serialize()
         context.state().update({QUESTIONER_STATE_KEY: state_dict})
+        context.state().commit()
 
     def state(self, state: QuestionerState):
         self._state = state
         return self
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        tracer = context.tracer
+        tracer = context.tracer()
         if tracer:
             await tracer.trigger("tracer_workflow", "on_invoke",
                                  invoke_id=context.executable_id, parent_node_id=context.parent_id,
@@ -421,6 +426,11 @@ class QuestionerExecutable(Executable):
             invoke_result = self._handle_questioner_direct_reply(inputs, context)
 
         self._store_state_to_context(self._state, context)
+
+        # 向用户追问
+        if self._state.is_undergoing_interaction():
+            Interaction(ctx=context).user_input(invoke_result.get("userFields", dict()).get("question", ""))
+
         return invoke_result
 
     async def ainvoke(self, inputs: Input, context: Context) -> Output:
