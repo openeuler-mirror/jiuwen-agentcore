@@ -298,34 +298,34 @@ class CheckpointTest(unittest.TestCase):
         # 每次节点2有两个等待用户输入，索引为：0、1，循环三次，共6个输入
         res = self.invoke_workflow({"input_array": [1, 2, 3], "input_number": 1}, create_context(session_id=session_id),
                                    flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
         self.assertEqual(res, {"array_result": [11, 12, 13], "user_var": None})
@@ -333,24 +333,24 @@ class CheckpointTest(unittest.TestCase):
         # 重复执行
         res = self.invoke_workflow({"input_array": [4, 5], "input_number": 2}, create_context(session_id=session_id),
                                    flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 1, 'payload': ('2', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
 
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
         self.assertEqual(res, {"array_result": [14, 15], "user_var": None})
@@ -380,13 +380,13 @@ class CheckpointTest(unittest.TestCase):
         session_id = uuid.uuid4().hex
 
         res = self.invoke_workflow({"a": 1, "b": "haha"}, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'type': '__interaction__', 'index': 0, 'payload': ('a', 'Please enter any key')})
+        self.assertEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('a', 'Please enter any key')}])
         user_input = InteractiveInput()
-        user_input.update(res.get("payload")[0], {"aa": "any key"})
+        user_input.update(res[0].get("payload")[0], {"aa": "any key"})
         res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
-        self.assertEqual(res, {'index': 1,
+        self.assertEqual(res, [{'index': 1,
                                'payload': ('a', 'Please enter any key'),
-                               'type': '__interaction__'})
+                               'type': '__interaction__'}])
         self.assertEqual(start_node.runtime, 1)
 
     def test_simple_stream_interactive_workflow(self):
@@ -430,3 +430,54 @@ class CheckpointTest(unittest.TestCase):
             result = res.payload[1]
         self.assertEqual(result, {"aa": "any key"})
         self.assertEqual(start_node.runtime, 1)
+
+    def test_simple_concurrent_interactive_workflow(self):
+        """
+        graph : start->a->end
+                     ->b->end
+        """
+        start_node = MockStartNode4Cp("start")
+        flow = create_flow()
+        flow.set_start_comp("start", start_node,
+                            inputs_schema={
+                                "a": "${user.inputs.a}",
+                                "b": "${user.inputs.b}",
+                                "c": 1,
+                                "d": [1, 2, 3]})
+        flow.add_workflow_comp("a", InteractiveNode4Cp("a"),
+                               inputs_schema={
+                                   "aa": "${start.a}",
+                                   "ac": "${start.c}"})
+        flow.add_workflow_comp("b", InteractiveNode4Cp("b"),
+                               inputs_schema={
+                                   "aa": "${start.a}",
+                                   "ac": "${start.c}"})
+        flow.set_end_comp("end", MockEndNode("end"),
+                          inputs_schema={
+                              "result": ["${a.aa}", "${b.aa}"]})
+        flow.add_connection("start", "a")
+        flow.add_connection("start", "b")
+        flow.add_connection("a", "end")
+        flow.add_connection("b", "end")
+
+        session_id = uuid.uuid4().hex
+
+        res = self.invoke_workflow({"a": 1, "b": "haha"}, create_context(session_id=session_id), flow)
+        self.assertCountEqual(res, [{'type': '__interaction__', 'index': 0, 'payload': ('a', 'Please enter any key')},
+                                    {'type': '__interaction__', 'index': 0, 'payload': ('b', 'Please enter any key')}])
+        user_input = InteractiveInput()
+        user_input.update("a", {"aa": "any key a"})
+        user_input.update("b", {"aa": "any key b"})
+        res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
+        self.assertCountEqual(res, [{'index': 1,
+                               'payload': ('a', 'Please enter any key'),
+                               'type': '__interaction__'}, {'index': 1,
+                               'payload': ('b', 'Please enter any key'),
+                               'type': '__interaction__'}])
+        self.assertEqual(start_node.runtime, 1)
+        user_input = InteractiveInput()
+        user_input.update("a", {"aa": "any key a"})
+        user_input.update("b", {"aa": "any key b"})
+        res = self.invoke_workflow(user_input, create_context(session_id=session_id), flow)
+        self.assertEqual(res, {"result": ["any key a", "any key b"]})
+

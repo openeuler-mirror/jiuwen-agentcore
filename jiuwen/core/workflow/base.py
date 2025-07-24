@@ -151,8 +151,12 @@ class Workflow(BaseWorkFlow):
         async for chunk in self.stream(inputs, context, stream_modes=[BaseStreamMode.OUTPUT]):
             chunks.append(chunk)
 
-        results = chunks[-1].model_dump() if (len(chunks) >= 1 and isinstance(chunks[-1], OutputSchema) and
-                                              chunks[-1].type == INTERACTION) else context.state().get_outputs(
+        is_interaction = False
+        for chunk in chunks:
+            if isinstance(chunk, OutputSchema) and chunk.type == INTERACTION:
+                is_interaction = True
+                break
+        results = [chunk.model_dump() for chunk in chunks] if is_interaction else context.state().get_outputs(
             self._end_comp_id)
         logger.info("end to invoke, results=%s", results)
         return results

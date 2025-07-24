@@ -66,12 +66,12 @@ class InMemoryCheckpointer(BaseCheckpointer[str]):
         if isinstance(self.input, InteractiveInput):
             for node_id, input in self.input.user_input.items():
                 exe_ctx = NodeContext(self.ctx, node_id)
-                interactive_input = self.ctx.state().get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + node_id)
+                interactive_input = exe_ctx.state().get_comp(INTERACTIVE_INPUT)
                 if isinstance(interactive_input, list):
                     interactive_input.append(input)
-                    exe_ctx.state().update_comp({INTERACTIVE_INPUT: {node_id: interactive_input}})
+                    exe_ctx.state().update_comp({INTERACTIVE_INPUT: interactive_input})
                     continue
-                exe_ctx.state().update_comp({INTERACTIVE_INPUT: {node_id: [input]}})
+                exe_ctx.state().update_comp({INTERACTIVE_INPUT: [input]})
             self.ctx.state().commit()
 
         if state_updates_blob := self.state_updates_blobs.get(
