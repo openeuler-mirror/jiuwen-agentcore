@@ -23,7 +23,7 @@ class Interaction(object):
         self.idx = 0
         self.node_id = self.ctx.state()._node_id
         self.interactive_inputs = None
-        interactive_inputs = self.ctx.state().get_comp(INTERACTIVE_INPUT + NESTED_PATH_SPLIT + self.node_id)
+        interactive_inputs = self.ctx.state().get_comp(INTERACTIVE_INPUT)
         if isinstance(interactive_inputs, list):
             self.interactive_inputs = interactive_inputs
         self.latest_interactive_inputs = None
@@ -51,7 +51,7 @@ class Interaction(object):
 
         raise GraphInterrupt((Interrupt(
             value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True,
-            ns=self.node_id)))
+            ns=self.node_id),))
 
     def user_latest_input(self, value: Any) -> Any:
         if res := self.latest_interactive_inputs:
@@ -69,4 +69,4 @@ class Interaction(object):
 
         raise GraphInterrupt((Interrupt(
             value=OutputSchema(type=INTERACTION, index=self.idx, payload=(self.node_id, value)), resumable=True,
-            ns=self.node_id)))
+            ns=self.node_id),))

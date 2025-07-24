@@ -3,6 +3,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
 from typing import Any, Optional
 
+from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.condition.condition import INDEX
@@ -67,10 +68,16 @@ class Vertex:
         self._context.state().set_outputs(self._node_id, results)
         if self._context.tracer() is not None:
             await self.__trace_outputs__(results)
+
+        self.__clear_interactive__()
         return results
 
     def __post_stream__(self, results_iter: Any) -> None:
         pass
+
+    def __clear_interactive__(self) -> None:
+        if self._context.state().get_comp(INTERACTIVE_INPUT):
+            self._context.state().update_comp({INTERACTIVE_INPUT: None})
 
     async def __trace_inputs__(self, inputs: Optional[dict]) -> None:
         if self._executable.skip_trace():

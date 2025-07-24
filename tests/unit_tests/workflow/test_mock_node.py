@@ -113,7 +113,7 @@ class StreamNodeWithSubWorkflow(MockNodeBase):
         return inputs
 
 
-class MockStartNode4Cp(Start, MockNodeBase):
+class MockStartNode4Cp(Start):
     def __init__(self, node_id: str):
         super().__init__(node_id, {})
         self.runtime = 0
