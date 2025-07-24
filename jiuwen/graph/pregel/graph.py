@@ -133,17 +133,14 @@ class CompiledGraph(ExecutableGraph):
                                                               config=config,
                                                               checkpoint_during=False)
         except:
-            if is_main:
+            if is_main and self._checkpoint_saver:
                 self._checkpoint_saver.save(config)
             raise
 
-        if result.get(INTERRUPT) is None and self._checkpoint_saver:
-            executable_context = NodeContext(context, node_id="")
-            executable_context.state().update_comp({INTERACTIVE_INPUT: None})
-            executable_context.state().commit()
-            self._checkpoint_saver.delete_thread(context.session_id())
-        else:
-            if is_main:
+        if is_main and self._checkpoint_saver:
+            if result.get(INTERRUPT) is None:
+                self._checkpoint_saver.delete_thread(context.session_id())
+            else:
                 self._checkpoint_saver.save(config)
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
