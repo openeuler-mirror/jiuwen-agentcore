@@ -9,9 +9,11 @@ from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
 from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.common.configs.model_config import ModelConfig
+from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.intent_detection_comp import IntentDetectionComponent, IntentDetectionConfig
 from jiuwen.core.component.llm_comp import LLMComponent, LLMCompConfig
 from jiuwen.core.component.questioner_comp import QuestionerComponent, QuestionerConfig, FieldInfo
+from jiuwen.core.component.start_comp import Start
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
 from jiuwen.core.context.agent_context import AgentContext
 from jiuwen.core.context.config import Config
@@ -173,6 +175,22 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         tool_config = ToolComponentConfig(needValidate=False)
         return ToolComponent(tool_config)
 
+    @staticmethod
+    def _create_start_component():
+        return Start("start",
+                     {
+                         "userFields": {"inputs": [], "outputs": []},
+                         "systemFields": {"input": [
+                             {"id": "query", "type": "String", "required": "true", "sourceType": "ref"}
+                         ]
+                         }
+                     }
+                     )
+
+    @staticmethod
+    def _create_end_component():
+        return End("end", "end", {"responseTemplate": "{{output}}"})
+
     def _build_workflow(
             self,
             mock_plugin_get_tool,
@@ -204,34 +222,34 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         )
         context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
         # 3. 实例化各组件
-        start = MockStartNode("start")
+        start = self._create_start_component()
         intent = self._create_intent_detection_component()
         llm = self._create_llm_component()
         questioner = self._create_questioner_component()
         plugin = self._create_plugin_component()
-        end = MockEndNode("end")
+        end = self._create_end_component()
         branch = BranchComponent()
 
         # 4. 注册组件到工作流
         flow.set_start_comp(
             "start",
             start,
-            inputs_schema={"query": "${query}"},
+            inputs_schema={"systemFields": {"query": "${query}"}},
         )
         flow.add_workflow_comp(
             "intent",
             intent,
-            inputs_schema={"input": "${query}"},
+            inputs_schema={"input": "${start.systemFields.query}"},
         )
         flow.add_workflow_comp(
             "llm",
             llm,
-            inputs_schema={"userFields": {"query": "${start.query}"}},
+            inputs_schema={"userFields": {"query": "${start.systemFields.query}"}},
         )
         flow.add_workflow_comp(
             "questioner",
             questioner,
-            inputs_schema={"query": "${start.query}"},  # TODO：临时 mock
+            inputs_schema={"query": "${start.systemFields.query}"}
         )
         flow.add_workflow_comp(
             "plugin",
@@ -241,7 +259,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
                 "validated": True,
             },
         )
-        flow.set_end_comp("end", end, inputs_schema={"output": "${plugin.result}"})
+        flow.set_end_comp("end", end, inputs_schema={"userFields": {"output": "${plugin.result}"}})
 
         # 5. 分支逻辑
         flow.add_workflow_comp("branch", branch, inputs_schema={
@@ -310,4 +328,4 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             result = await agent.invoke({"query": "查询上海的天气", "conversation_id": "c123"})
 
             # 5. 断言
-            assert result == {'output': '上海今天晴 30°C'}
+            assert result == {'responseContent': '上海今天晴 30°C'}
