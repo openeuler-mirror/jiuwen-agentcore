@@ -44,4 +44,7 @@ class Executable(Generic[Input, Output]):
     def graph_invoker(self) -> bool:
         return False
 
+    def post_commit(self) -> bool:
+        return False
+
 GeneralExecutor = Executable[dict[str, Any], dict[str, Any]]

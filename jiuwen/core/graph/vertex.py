@@ -81,6 +81,8 @@ class Vertex:
             await self.__trace_outputs__(results)
 
         self.__clear_interactive__()
+        if self._executable.post_commit():
+            self._context.state().commit()
         return results
 
     async def _pre_stream(self, ability: ComponentAbility) -> AsyncIterator[dict]:

@@ -148,7 +148,9 @@ class LLMExecutable(Executable):
             response = llm_response.content
 
             # 临时调试：用于调用streamWriter实现流式输出
-            await context.stream_writer_manager().get_custom_writer().write(CustomSchema(**dict(streamOutput=response)))
+            stream_writer = context.stream_writer_manager().get_custom_writer()
+            if stream_writer:
+                await stream_writer.write(CustomSchema(**dict(streamOutput=response)))
 
             self._context.state().update({"response": response})
             logger.info("[%s] model outputs %s", self._context.executable_id(), response)
