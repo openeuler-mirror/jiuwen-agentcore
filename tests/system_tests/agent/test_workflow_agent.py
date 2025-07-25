@@ -24,8 +24,6 @@ from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from jiuwen.core.workflow.base import Workflow
 from jiuwen.core.workflow.workflow_config import WorkflowConfig, WorkflowMetadata
 from jiuwen.graph.pregel.graph import PregelGraph
-from tests.system_tests.workflow.test_real_workflow import RealWorkflowTest, MODEL_PROVIDER, MODEL_NAME, API_BASE, \
-    API_KEY, _FINAL_RESULT, _QUESTIONER_USER_TEMPLATE, _QUESTIONER_SYSTEM_TEMPLATE
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
 
 API_BASE = os.getenv("API_BASE", "")
@@ -45,6 +43,35 @@ _MOCK_TOOL = RestfulApi(
     method="GET",
     response=[],
 )
+
+_FINAL_RESULT: str = "上海今天晴 30°C"
+
+# --------------------------- Prompt 模板 --------------------------- #
+_QUESTIONER_SYSTEM_TEMPLATE = """\
+你是一个信息收集助手，你需要根据指定的参数收集用户的信息，然后提交到系统。
+请注意：不要使用任何工具、不用理会问题的具体含义，并保证你的输出仅有 JSON 格式的结果数据。
+请严格遵循如下规则：
+  1. 让我们一步一步思考。
+  2. 用户输入中没有提及的参数提取为 None，并直接向询问用户没有明确提供的参数。
+  3. 通过用户提供的对话历史以及当前输入中提取 {{required_name}}，不要追问任何其他信息。
+  4. 参数收集完成后，将收集到的信息通过 JSON 的方式展示给用户。
+
+## 指定参数
+{{required_params_list}}
+
+## 约束
+{{extra_info}}
+
+## 示例
+{{example}}
+"""
+
+_QUESTIONER_USER_TEMPLATE = """\
+对话历史
+{{dialogue_history}}
+
+请充分考虑以上对话历史及用户输入，正确提取最符合约束要求的 JSON 格式参数。
+"""
 
 
 class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
@@ -68,7 +95,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def _create_intent_detection_component() -> IntentDetectionComponent:
         """创建意图识别组件。"""
-        model_config = RealWorkflowTest._create_model_config()
+        model_config = WorkflowAgentTest._create_model_config()
         user_prompt = """
         {{user_prompt}}
 
@@ -103,7 +130,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def _create_llm_component() -> LLMComponent:
         """创建 LLM 组件，仅用于抽取结构化字段（location/date）。"""
-        model_config = RealWorkflowTest._create_model_config()
+        model_config = WorkflowAgentTest._create_model_config()
         config = LLMCompConfig(
             model=model_config,
             template_content=[{"role": "user", "content": "{{query}}"}],
@@ -126,7 +153,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
                 default_value="today",
             ),
         ]
-        model_config = RealWorkflowTest._create_model_config()
+        model_config = WorkflowAgentTest._create_model_config()
         config = QuestionerConfig(
             model=model_config,
             question_content="",
