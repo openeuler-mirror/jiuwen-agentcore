@@ -118,7 +118,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             user_prompt="请判断用户意图",
             category_info="",
             category_list=["分类1", "分类2"],
-            category_name_list=["旅游", "天气"],
+            category_name_list=["默认意图", "查询某地天气"],
             default_class="分类1",
             model=model_config,
             intent_detection_template=Template(
@@ -127,7 +127,10 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             ),
             enable_input=True,
         )
-        return IntentDetectionComponent(config)
+        component = IntentDetectionComponent(config)
+        component.add_branch("${intent.classificationId} == 0", ["end"], "默认分支")
+        component.add_branch("${intent.classificationId} == 1", ["llm"], "查询天气分支")
+        return component
 
     @staticmethod
     def _create_llm_component() -> LLMComponent:
@@ -228,7 +231,6 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         questioner = self._create_questioner_component()
         plugin = self._create_plugin_component()
         end = self._create_end_component()
-        branch = BranchComponent()
 
         # 4. 注册组件到工作流
         flow.set_start_comp(
@@ -261,16 +263,8 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         )
         flow.set_end_comp("end", end, inputs_schema={"userFields": {"output": "${plugin.result}"}})
 
-        # 5. 分支逻辑
-        flow.add_workflow_comp("branch", branch, inputs_schema={
-            "res": "${intent.classificationId}"
-        })
-        branch.add_branch("${intent.classificationId} == 1", ["llm"], "1")
-        branch.add_branch("${intent.classificationId} > 1", ["end"], "2")
-
         # 6. 连接拓扑
         flow.add_connection("start", "intent")
-        flow.add_connection("intent", "branch")
         flow.add_connection("llm", "questioner")
         flow.add_connection("questioner", "plugin")
         flow.add_connection("plugin", "end")

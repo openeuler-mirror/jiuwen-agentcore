@@ -10,10 +10,13 @@ from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent, ComponentConfig
-from typing import Optional, AsyncIterator
+from typing import Optional, AsyncIterator, Union, Callable
 
+from jiuwen.core.component.branch_router import BranchRouter
 from jiuwen.core.component.common.configs.model_config import ModelConfig
+from jiuwen.core.component.condition.condition import Condition
 from jiuwen.core.context.context import Context
+from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Executable, Output, Input
 from jiuwen.core.utils.llm.base import BaseChatModel
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
@@ -100,6 +103,7 @@ class IntentDetectionExecutable(Executable):
         self._llm: BaseChatModel = None
         self._initialized: bool = False
         self._config = component_config
+        self._router = None
 
     # 获取意图的id和name，用于下一节点调用
     def _get_intent_id_name(self, intent_config, intent_class):
@@ -225,10 +229,18 @@ class IntentDetectionExecutable(Executable):
             )
         return llm_output
 
+    def set_router(self, router):
+        self._router = router
+        return self
+
+    def post_commit(self) -> bool:
+        return True
+
     async def invoke(self, inputs: Input, context: Context) -> Output:
         """invoke IntentDetection节点"""
         # 提取上下文数据
         self._set_context(context)
+        self._router.set_context(context)
         self._initialize_if_needed()
         chat_history = self._get_chat_history_from_context()
         # 处理意图检测输入：
@@ -321,6 +333,7 @@ class IntentDetectionComponent(WorkflowComponent):
         super().__init__()
         self._executable = None
         self._config = component_config
+        self._router = BranchRouter()
 
     @property
     def executable(self) -> IntentDetectionExecutable:
@@ -329,6 +342,16 @@ class IntentDetectionComponent(WorkflowComponent):
             self._executable = self.to_executable()
         return self._executable
 
+    def add_component(self, graph: Graph, node_id: str, wait_for_all: bool = False) -> None:
+        graph.add_node(node_id, self.to_executable(), wait_for_all=wait_for_all)
+        graph.add_conditional_edges(node_id, self._router)
+
     def to_executable(self) -> IntentDetectionExecutable:
         """创建可执行实例"""
-        return IntentDetectionExecutable(self._config)
+        return IntentDetectionExecutable(self._config).set_router(self._router)
+
+    def add_branch(self, condition: Union[str, Callable[[], bool], Condition], target: Union[str, list[str]],
+                   branch_id: str = None):
+        if isinstance(target, str):
+            target = [target]
+        self._router.add_branch(condition, target, branch_id=branch_id)
