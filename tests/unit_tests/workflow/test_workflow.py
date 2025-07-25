@@ -581,3 +581,33 @@ class WorkflowTest(unittest.TestCase):
         flow.add_connection("c", "end")
 
         self.assert_workflow_invoke({"a": 1}, create_context(), flow, expect_results={"result": 3})
+
+    def test_five_transform_workflow(self):
+        # start -> a ---> b ---> c ---> d ---> e ---> f ---> g -> end
+        flow = create_flow()
+        flow.set_start_comp("start", MockStartNode("start"), inputs_schema={"a": "${a}"})
+        # a: throw 2 frames: {value: 1}, {value: 2}
+        flow.add_workflow_comp("a", StreamCompNode("a"), inputs_schema={"value": "${start.a}"}, comp_ability=[ComponentAbility.STREAM])
+        # b: transform frame to c
+        flow.add_workflow_comp("b", TransformCompNode("b"), inputs_schema={"value": "${a.value}"}, stream_inputs_schema={"value": "${a.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # c: transform frame to d
+        flow.add_workflow_comp("c", TransformCompNode("c"), inputs_schema={"value": "${b.value}"}, stream_inputs_schema={"value": "${b.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # d: transform frame to e
+        flow.add_workflow_comp("d", TransformCompNode("d"), inputs_schema={"value": "${c.value}"}, stream_inputs_schema={"value": "${c.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # e: transform frame to f
+        flow.add_workflow_comp("e", TransformCompNode("e"), inputs_schema={"value": "${d.value}"}, stream_inputs_schema={"value": "${d.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # f: transform frame to g
+        flow.add_workflow_comp("f", TransformCompNode("f"), inputs_schema={"value": "${e.value}"}, stream_inputs_schema={"value": "${e.value}"}, comp_ability=[ComponentAbility.TRANSFORM])
+        # g: collect all frames
+        flow.add_workflow_comp("g", CollectCompNode("g"), inputs_schema={"value": "${f.value}"}, stream_inputs_schema={"value": "${f.value}"}, comp_ability=[ComponentAbility.COLLECT])
+        flow.set_end_comp("end", MockEndNode("end"), inputs_schema={"result": "${g.value}"})
+        flow.add_connection("start", "a")
+        flow.add_stream_connection("a", "b")
+        flow.add_stream_connection("b", "c")
+        flow.add_stream_connection("c", "d")
+        flow.add_stream_connection("d", "e")
+        flow.add_stream_connection("e", "f")
+        flow.add_stream_connection("f", "g")
+        flow.add_connection("g", "end")
+
+        self.assert_workflow_invoke({"a": 1}, create_context(), flow, expect_results={"result": 3})
