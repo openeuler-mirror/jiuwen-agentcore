@@ -1,11 +1,8 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
-import asyncio
 import json
-from abc import ABC, abstractmethod
-from functools import partial
-from typing import TypeVar, Generic, Iterator, AsyncIterator, Any
+from typing import TypeVar, Generic, AsyncIterator, Any
 
 from jiuwen.core.common.exception.exception import InterruptException, JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
@@ -27,13 +24,13 @@ class Executable(Generic[Input, Output]):
         raise JiuWenBaseException(-1, "Invoke is not supported")
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        raise JiuWenBaseException(-1, "Invoke is not supported")
+        raise JiuWenBaseException(-1, "Stream is not supported")
 
     async def collect(self, inputs: AsyncIterator[Input], contex: Context) -> Output:
-        raise JiuWenBaseException(-1, "Invoke is not supported")
+        raise JiuWenBaseException(-1, "Collect is not supported")
 
     async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
-        raise JiuWenBaseException(-1, "Invoke is not supported")
+        raise JiuWenBaseException(-1, "Transform is not supported")
 
     async def interrupt(self, message: dict):
         raise InterruptException(

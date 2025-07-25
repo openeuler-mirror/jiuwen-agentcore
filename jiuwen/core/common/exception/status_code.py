@@ -62,6 +62,9 @@ class StatusCode(Enum):
     WORKFLOW_INTENT_DETECTION_LLM_INVOKE_ERROR = (101096, "Model invoke failed with error message = {error_msg}")
     WORKFLOW_INTENT_DETECTION_PROMPT_INVOKE_ERROR = (101098, "Prompt invoke failed with error message = {error_msg}")
 
+    # message queue manager 101,711-101,719
+    WORKFLOW_MESSAGE_QUEUE_MANAGER_ERROR = (101711, "Message queue manager error: {error_msg}")
+
     @property
     def code(self):
         return self.value[0]

@@ -1,5 +1,7 @@
 from typing import Dict, Any, AsyncIterator
 
+from jiuwen.core.common.exception.exception import JiuWenBaseException
+from jiuwen.core.common.exception.status_code import StatusCode
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.context.state import Transformer
 from jiuwen.core.context.utils import get_by_schema
@@ -18,11 +20,10 @@ class StreamTransform:
 class MessageQueueManager:
     def __init__(self, stream_edges: dict[str, list[str]], comp_abilities: dict[str, list[ComponentAbility]],
                  sub_graph: bool):
-        self._stream_edges: Dict[str, list[str]] = {}
+        self._stream_edges = stream_edges
         self._streams: Dict[str, dict[ComponentAbility, AsyncStreamQueue]] = {}
         self._streams_transform = StreamTransform()
         for producer_id, consumer_ids in stream_edges.items():
-            self._stream_edges[producer_id] = consumer_ids
             for consumer_id in consumer_ids:
                 consumer_stream_ability = [ability for ability in comp_abilities[consumer_id] if
                                            ability in [ComponentAbility.COLLECT, ComponentAbility.TRANSFORM]]
@@ -34,7 +35,9 @@ class MessageQueueManager:
     @property
     def sub_workflow_stream(self):
         if not self._sub_graph:
-            raise RuntimeError("only sub graph has sub_workflow_stream")
+            raise JiuWenBaseException(
+                error_code=StatusCode.WORKFLOW_MESSAGE_QUEUE_MANAGER_ERROR.code,
+                message=f"only sub graph has sub_workflow_stream")
         return self._sub_workflow_stream
 
     def _get_queue(self, consumer_id: str) -> dict[ComponentAbility, AsyncStreamQueue]:
@@ -96,6 +99,3 @@ class MessageQueueManager:
         for consumer_id in list(self._streams.keys()):
             await self.close_stream(consumer_id)
         self._streams.clear()
-
-    def is_empty(self, node_id) -> bool:
-        return self._streams[node_id] is None

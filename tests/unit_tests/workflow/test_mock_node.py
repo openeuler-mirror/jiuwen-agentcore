@@ -263,13 +263,6 @@ class MultiCollectCompNode(MockNodeBase):
     def __init__(self, node_id: str):
         super().__init__(node_id)
         self._node_id = node_id
-        self._is_stream_end = False
-
-    async def invoke(self, inputs: Input, context: Context) -> Output:
-        while True:
-            if self._is_stream_end:
-                break
-            await asyncio.sleep(0.1)
 
     async def collect(self, inputs: AsyncIterator[Input], context: Context) -> Output:
         logger.info(f"===CollectCompNode[{self._node_id}], input: {inputs}")
@@ -278,11 +271,11 @@ class MultiCollectCompNode(MockNodeBase):
         try:
             async for input in inputs:
                 logger.info(f"===CollectCompNode[{self._node_id}], input: {input}")
-                a_value = input.get("a", {}).get("value")
+                a_value = input.get("value", {}).get("a")
                 if a_value is not None:
                     a_collect += a_value
 
-                b_value = input.get("b", {}).get("value")
+                b_value = input.get("value", {}).get("b")
                 if b_value is not None:
                     b_collect += b_value
         except Exception as e:
@@ -291,5 +284,4 @@ class MultiCollectCompNode(MockNodeBase):
             # result = result + input["value"]
         result = {"a_collect": a_collect, "b_collect": b_collect}
         logger.info(f"===CollectCompNode243 [{self._node_id}], output: {result}")
-        self._is_stream_end = True
         return result

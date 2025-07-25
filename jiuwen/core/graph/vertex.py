@@ -30,9 +30,6 @@ class Vertex:
         self._context = NodeContext(context, self._node_id)
         return True
 
-    def get_executable(self) -> Executable:
-        return self._executable
-
     async def _run_executable(self, ability: ComponentAbility, is_subgraph: bool = False, config: Any = None):
         if ability == ComponentAbility.INVOKE:
             batch_inputs = await self._pre_invoke()
