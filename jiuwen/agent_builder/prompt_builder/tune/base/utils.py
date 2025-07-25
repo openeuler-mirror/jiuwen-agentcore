@@ -20,9 +20,9 @@ from jiuwen.agent_builder.prompt_builder.tune.base.constant import TuneConstant
 class TaskInfo(BaseModel):
     """prompt optimization input task info"""
     task_id: str = Field(...)
-    task_name: str = Field(...)
+    task_name: str = Field(default="optimization task")
     task_description: str = Field(default="")
-    create_time: str = Field(...)
+    create_time: str = Field(default=datetime.now(tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:%M:%S"))
 
 
 class OptimizeInfo(BaseModel):
@@ -102,7 +102,9 @@ class LLMModelProcess:
         model_info = BaseModelInfo(
             api_key=llm_model_info.api_key,
             api_base=llm_model_info.url,
-            model=llm_model_info.model
+            model=llm_model_info.model,
+            temperature=0.0,
+            top_p=0.0
         )
         self.chat_llm = ModelFactory().get_model(llm_model_info.model_source, model_info)
 

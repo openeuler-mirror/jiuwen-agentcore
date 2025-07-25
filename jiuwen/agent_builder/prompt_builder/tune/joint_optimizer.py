@@ -12,9 +12,7 @@ from os.path import dirname, join
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from logging import getLogger
-logger = getLogger(__name__)
-
+from jiuwen.core.common.logging.base import logger
 from jiuwen.agent_builder.prompt_builder.tune.common.exception import JiuWenBaseException, StatusCode
 from jiuwen.agent_builder.prompt_builder.tune.base.exception import OnStopException
 from jiuwen.agent_builder.prompt_builder.tune.base.constant import TuneConstant, TaskStatus
@@ -644,7 +642,7 @@ class JointOptimizer:
             return False
         self.params: JointParameters = context.get("params")
         self.cur_iteration = context.get("cur_iteration", 0)
-        self.best_accuracy = self.params.get("best_accuracy", 0.0)
+        self.best_accuracy = context.get("best_accuracy", 0.0)
         self.params.filled_instructions = self.fill_prompt(self.params.base_instructions, self.params.placeholders)
         self.sampled_incorrect_data = context.get("sampled_incorrect_data", [])
         return True
@@ -681,7 +679,7 @@ class JointOptimizer:
         for iter in range(begin_iteration, self.params.num_iterations):
             self.cur_iteration = iter + 1
             is_optimize_instruction = random.choice([True, False]) if need_optimize_example else True
-            logger.info(f"Task-{context.get('id')} at iteration {iter} / {self.params.num_iterations}"
+            logger.info(f"Task-{context.get('id')} at iteration {iter} / {self.params.num_iterations} "
                         f"start optimize {'instruction' if is_optimize_instruction else 'examples'}")
             if is_optimize_instruction:
                 history = self._optimize_instruction(context)

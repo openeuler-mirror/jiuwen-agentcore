@@ -4,21 +4,75 @@
 
 import copy
 import threading
-import hashlib
-import time
 from typing import Dict, Optional, Any
-
 from cacheout import Cache
 
 from jiuwen.agent_builder.prompt_builder.tune.common.singleton import Singleton
-
-from logging import getLogger
-logger = getLogger(__name__)
-
 from jiuwen.agent_builder.prompt_builder.tune.base.constant import TuneConstant, TaskStatus
 
 Context = Dict[str, Any]
 STOP_EVENT = "stop_event"
+
+class OptimizeProgress:
+    def __init__(self, ctx_id):
+        self._ctx_id = ctx_id
+
+    @property
+    def status(self) -> str:
+        return self._context.get(TaskStatus.TASK_STATUS, "")
+
+    @property
+    def error_msg(self) -> str:
+        return self._context.get("error_msg", "")
+
+    @property
+    def best_prompt(self) -> str:
+        if not self._context:
+            return ""
+        opt_params = self._context.get("params")
+        if not opt_params:
+            return self._context.get("raw_templates", [""])[0]
+        return opt_params.full_prompt
+
+    @property
+    def base_accuracy(self) -> Optional[float]:
+        history = self._context.get("history", [])
+        if not history:
+            return None
+        return history[0].success_rate
+
+    @property
+    def best_accuracy(self) -> Optional[float]:
+        return self._context.get("best_accuracy", None)
+
+    @property
+    def current_iteration(self) -> int:
+        history_list = self._context.get("history", [])
+        return len(history_list) - 1 if history_list else 0
+
+    def stop(self) -> bool:
+        status = self.status
+        if status == TaskStatus.TASK_RUNNING:
+            stop_event: Optional[threading.Event] = self._context.get(STOP_EVENT, None)
+            if stop_event and not stop_event.is_set():
+                self._context[TaskStatus.TASK_STATUS] = TaskStatus.TASK_STOPPING
+                stop_event.set()
+                return True
+        return False
+
+    def delete(self):
+        task_id = self._context.get("id", None)
+        ContextManager().delete(task_id)
+
+    def get_history(self):
+        history = self._context.get("history", [])
+        if not history:
+            return []
+        return [(h.full_prompt, h.success_rate) for h in history]
+
+    @property
+    def _context(self):
+        return ContextManager().get(self._ctx_id)
 
 class ContextManager(metaclass=Singleton):
     """manage optimizer train context"""
@@ -34,11 +88,8 @@ class ContextManager(metaclass=Singleton):
         with self._lock:
             return self._cache.size()
 
-    @staticmethod
-    def _generate_context_id():
-        """generate unique context id"""
-        timestamp = str(int(time.time() * 1000))
-        return f"JNT_{hashlib.sha256(timestamp.encode()).hexdigest()}"
+    def get_task_progress(self, ctx_id: str):
+        return OptimizeProgress(ctx_id)
 
     def get_context_attr(self, ctx_id: str, attr_name: str):
         context = self._cache.get(ctx_id)
@@ -90,6 +141,8 @@ class ContextManager(metaclass=Singleton):
 
     def delete(self, ctx_id: str):
         """delete checkpoint from cache"""
+        if ctx_id is None:
+            return
         with self._lock:
             self._cache.delete(ctx_id)
             self._check_points.delete(ctx_id)
