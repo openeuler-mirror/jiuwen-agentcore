@@ -6,11 +6,9 @@ from typing import Self, Union, Any, AsyncIterator, Hashable, Callable, Awaitabl
 
 from langchain_core.runnables import Runnable
 
+from jiuwen.core.common.constants.constant import INPUTS_KEY, CONFIG_KEY
 from jiuwen.core.context.context import Context
 from jiuwen.core.graph.executable import Executable, Output, Input
-
-INPUTS_KEY = "inputs"
-CONFIG_KEY = "config"
 
 
 class ExecutableGraph(Executable[Input, Output]):
@@ -58,4 +56,7 @@ class Graph(ABC):
         pass
 
     def compile(self, context: Context) -> ExecutableGraph:
+        pass
+
+    def get_nodes(self) -> dict:
         pass

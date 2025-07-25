@@ -199,3 +199,89 @@ class InteractiveNode4StreamCp(MockNodeBase):
             loop.run_until_complete(
                 stream_writer.write(OutputSchema(type="output", index=0, payload=(self.node_id, result))))
         return result
+
+class StreamCompNode(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+        self._node_id = node_id
+
+    async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
+        logger.info(f"===StreamCompNode[{self._node_id}], input: {inputs}")
+        if inputs is None:
+            yield 1
+        else:
+            for i in range(1, 3):
+                yield {"value": i * inputs["value"]}
+
+class CollectCompNode(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+        self._node_id = node_id
+
+    async def collect(self, inputs: AsyncIterator[Input], context: Context) -> Output:
+        logger.info(f"===CollectCompNode[{self._node_id}], input stream started")
+        result = 0
+        try:
+            async for input in inputs:
+                try:
+                    value = input.get("value")
+                    if value is None:
+                        logger.warning(f"===CollectCompNode[{self._node_id}], missing 'value' in input: {input}")
+                        continue
+                    result += value
+                    logger.info(f"===CollectCompNode[{self._node_id}], processed input: {input}")
+                except Exception as e:
+                    logger.error(f"===CollectCompNode[{self._node_id}], error processing input: {input}, error: {e}")
+                    continue  # 可选：继续处理下一个输入
+            return {"value": result}
+        except Exception as e:
+            logger.error(f"===CollectCompNode[{self._node_id}], critical error in collect: {e}")
+            raise  # 重新抛出关键异常，如流中断
+
+class TransformCompNode(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+        self._node_id = node_id
+
+    async def transform(self, inputs: AsyncIterator[Input], context: Context) -> AsyncIterator[Output]:
+        logger.debug(f"===TransformCompNode[{self._node_id}], input stream started")
+        try:
+            async for input in inputs:
+                try:
+                    value = input.get("value")
+                    logger.debug(f"===TransformCompNode[{self._node_id}], processed input: {value}")
+                    yield {"value": value}
+                except Exception as e:
+                    logger.error(f"===TransformCompNode[{self._node_id}], error processing input: {input}, error: {e}")
+                    # 可选：继续处理下一个输入，或重新抛出异常以终止流
+                    continue
+        except Exception as e:
+            logger.error(f"===TransformCompNode[{self._node_id}], critical error in transform: {e}")
+            raise  # 重新抛出关键异常（如流中断）
+
+class MultiCollectCompNode(MockNodeBase):
+    def __init__(self, node_id: str):
+        super().__init__(node_id)
+        self._node_id = node_id
+
+    async def collect(self, inputs: AsyncIterator[Input], context: Context) -> Output:
+        logger.info(f"===CollectCompNode[{self._node_id}], input: {inputs}")
+        a_collect = 0
+        b_collect = 0
+        try:
+            async for input in inputs:
+                logger.info(f"===CollectCompNode[{self._node_id}], input: {input}")
+                a_value = input.get("value", {}).get("a")
+                if a_value is not None:
+                    a_collect += a_value
+
+                b_value = input.get("value", {}).get("b")
+                if b_value is not None:
+                    b_collect += b_value
+        except Exception as e:
+            logger.error(f"Error during collection: {e}")
+            raise
+            # result = result + input["value"]
+        result = {"a_collect": a_collect, "b_collect": b_collect}
+        logger.info(f"===CollectCompNode243 [{self._node_id}], output: {result}")
+        return result
