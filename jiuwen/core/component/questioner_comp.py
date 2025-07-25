@@ -407,7 +407,7 @@ class QuestionerExecutable(Executable):
         tracer = context.tracer()
         if tracer:
             await tracer.trigger("tracer_workflow", "on_invoke",
-                                 invoke_id=context.executable_id, parent_node_id=context.parent_id,
+                                 invoke_id=context.executable_id(), parent_node_id=context.parent_id(),
                                  on_invoke_data={"on_invoke_data": "extra trace data"})
 
         state_from_context = self._load_state_from_context(context)
