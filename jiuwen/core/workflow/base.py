@@ -7,6 +7,7 @@ from typing import Self, Dict, Any, Union, AsyncIterator
 from pydantic import BaseModel
 
 from jiuwen.core.common.constants.constant import INTERACTION
+from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.base import WorkflowComponent
 from jiuwen.core.component.end_comp import End
@@ -74,6 +75,10 @@ class BaseWorkFlow:
                                                                           outputs_transformer=stream_outputs_transformer)
         self._workflow_config.comp_abilities[
             comp_id] = comp_ability if comp_ability is not None else [ComponentAbility.INVOKE]
+        for ability in self._workflow_config.comp_abilities[comp_id]:
+            if ability in [ComponentAbility.STREAM, ComponentAbility.TRANSFORM, ComponentAbility.COLLECT]:
+                if not wait_for_all:
+                    raise JiuWenBaseException(-1, "stream components need to wait for all")
         return self
 
     def start_comp(
