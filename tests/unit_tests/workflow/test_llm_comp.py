@@ -1,5 +1,6 @@
 import sys
 import types
+from typing import Any
 
 import pytest
 from unittest.mock import Mock
@@ -93,6 +94,43 @@ class TestLLMExecutableInvoke:
 
         assert output[USER_FIELDS] == {'result': 'mocked response'}
         fake_llm.ainvoke.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_stream_success(
+            self,
+            mock_get_model,  # 这就是补丁
+            fake_ctx,
+            fake_input,
+            fake_model_config,
+    ):
+        config = LLMCompConfig(
+            model=fake_model_config,
+            template_content=[{"role": "user", "content": "Hello {query}"}],
+            response_format={"type": "text"},
+            output_config={"result": {
+                "type": "string",
+                "required": True,
+            }},
+        )
+        exe = LLMExecutable(config)
+
+        fake_llm = AsyncMock()
+
+        # 模拟异步生成器，返回多个 AIMessage chunk
+        async def mock_stream_response(input: Any):
+            for chunk in ["mocked ", "response"]:
+                yield AIMessage(content=chunk)
+
+        fake_llm.astream = mock_stream_response
+        mock_get_model.return_value = fake_llm
+
+        # 调用 stream 方法，异步迭代所有 chunk
+        chunks = []
+        async for chunk in exe.stream(fake_input(userFields=dict(query="pytest")), fake_ctx):
+            chunks.append(chunk)
+
+        # 假设 LLMExecutable.stream 会把每个 AIMessage.content 直接 yield 出来
+        assert len(chunks) == 2
 
     @pytest.mark.asyncio
     async def test_invoke_llm_exception(

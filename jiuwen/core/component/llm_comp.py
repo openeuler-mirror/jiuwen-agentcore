@@ -328,6 +328,7 @@ class LLMExecutable(Executable):
 
     async def _invoke_for_json_format(self, inputs: Input) -> AsyncIterator[Output]:
         model_inputs = self._prepare_model_inputs(inputs)
+        logger.info("[%s] model inputs %s", self._context.executable_id(), model_inputs)
         llm_output = await self._llm.ainvoke(model_inputs)  # 如果 invoke 是异步接口，要加 await
         yield self._create_output(llm_output)
 
@@ -336,7 +337,11 @@ class LLMExecutable(Executable):
         # 假设 self._llm.stream 本身就是异步生成器
         async for chunk in self._llm.astream(model_inputs):
             content = WorkflowLLMUtils.extract_content(chunk)
-            yield content
+            formatted_res = OutputFormatter.format_response(content,
+                                                            self._config.response_format,
+                                                            self._config.output_config)
+            stream_out = {USER_FIELDS: formatted_res}
+            yield stream_out
 
     def _format_response_content(self, response_content: str) -> dict:
         pass
