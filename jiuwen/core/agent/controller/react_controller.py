@@ -22,7 +22,6 @@ from jiuwen.core.utils.llm.messages import BaseMessage, ToolInfo, Function, Para
     ToolCall
 from jiuwen.core.utils.llm.model_utils.model_factory import ModelFactory
 from jiuwen.core.utils.output_parser.base import BaseOutputParser
-from jiuwen.core.utils.output_parser.novel_tool_output_parser import NovelToolOutputParser
 from jiuwen.core.utils.output_parser.null_output_parser import NullOutputParser
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.prompt.template.template_manager import TemplateManager

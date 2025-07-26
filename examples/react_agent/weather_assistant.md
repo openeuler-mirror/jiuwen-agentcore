@@ -1,6 +1,6 @@
 # 使用Open JiuWen搭建一个ReAct Agent：天气查询助手
 
-> 运行环境：Python ≥ 3.11，仅需 `pip install jiuwen pytest-asyncio`。
+> 运行环境：Python ≥ 3.11，仅需 `pip install jiuwen`。
 
 ---
 
@@ -18,7 +18,7 @@
 ## 2. 安装依赖
 
 ```bash
-pip install jiuwen pytest-asyncio
+pip install jiuwen
 ```
 
 ---
@@ -34,7 +34,8 @@ def _create_tool():
         name="WeatherReporter",
         description="天气查询插件",
         params=[
-            Param(name="location", description="地点", type="string", required=True),
+            Param(name="location", description="天气查询的地点，必须为英文", type="string", required=True),
+            Param(name="date", description="天气查询的时间，格式为YYYY-MM-DD", type="string", required=True),
         ],
         path="http://127.0.0.1:9000/weather",  # 天气查询服务部署在本地，端口9000
         headers={},
@@ -42,6 +43,28 @@ def _create_tool():
         response=[],
     )
     return weather_plugin
+
+def _create_tool_schema():
+    tool_info = PluginSchema(
+        name='WeatherReporter',
+        description='天气查询插件',
+        inputs={
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "天气查询的地点。\n注意：地点名称必须为英文",
+                    "required": True
+                },
+                "date": {
+                    "type": "string",
+                    "description": "天气查询的时间，格式为YYYY-MM-DD",
+                    "required": True
+                }
+            }
+        }
+    )
+    return tool_info
 ```
 
 ## 4. 定义大模型配置
@@ -76,9 +99,11 @@ def _create_model_config() -> ModelConfig:
 ## 5. 自定义天气查询助手的提示词
 
 ```python
-DEFAULT_TEMPLATE = [
-    dict(role="system", content="你是一个AI助手，在适当的时候调用合适的工具，帮助我完成任务！")
-]
+def _create_prompt_template():
+    system_prompt = "你是一个AI助手，在适当的时候调用合适的工具，帮助我完成任务！今天的日期为：{}\n注意：1. 如果用户请求中未指定具体时间，则默认为今天。"
+    return [
+        dict(role="system", content=system_prompt.format(build_current_date()))
+    ]
 ```
 
 ## 6. 创建ReActAgentConfig对象
@@ -94,10 +119,10 @@ react_agent_config = create_react_agent_config(
             agent_id="react_agent_123",
             agent_version="0.0.1",
             description="AI助手",
-            plugins=tools_schema,  # 天气查询插件的元数据信息
+            plugins=[_create_tool_schema()],  # 天气查询插件的元数据信息
             workflows=[],
-            model=model_config,    # 大模型的配置信息
-            prompt_template=prompt_template  # 自定义提示词
+            model=_create_model_config(),    # 大模型的配置信息
+            prompt_template=_create_prompt_template()  # 自定义提示词
         )
 ```
 
