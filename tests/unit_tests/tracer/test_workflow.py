@@ -21,7 +21,7 @@ fake_exception_module.JiuWenBaseException = Mock()
 sys.modules["jiuwen.core.common.logging.base"] = fake_base
 sys.modules["jiuwen.core.common.exception.base"] = fake_exception_module
 
-from tests.unit_tests.tracer.test_mock_node_with_tracer import StreamNodeWithTracer, CompositeWorkflowNode
+from tests.unit_tests.tracer.test_mock_node_with_tracer import StreamNodeWithTracer
 from jiuwen.core.common.logging.base import logger
 
 import asyncio
@@ -250,7 +250,7 @@ class WorkflowTest(unittest.TestCase):
                                              "c": 1,
                                              "d": [1, 2, 3]})
 
-            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent(sub_workflow),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -314,7 +314,7 @@ class WorkflowTest(unittest.TestCase):
                                              "c": 1,
                                              "d": [1, 2, 3]})
 
-            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent(sub_workflow),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -414,7 +414,7 @@ class WorkflowTest(unittest.TestCase):
                                              "c": 1,
                                              "d": [1, 2, 3]})
 
-            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent(sub_workflow),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -424,7 +424,7 @@ class WorkflowTest(unittest.TestCase):
                 {"node_id": "b", "id": 2, "data": "2"},
             ]
 
-            main_workflow.add_workflow_comp("b", ExecWorkflowComponent("b", sub_workflow_2),
+            main_workflow.add_workflow_comp("b", ExecWorkflowComponent(sub_workflow_2),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -466,9 +466,8 @@ class WorkflowTest(unittest.TestCase):
             loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
             loop_group.add_workflow_comp("2", AddTenNode("2"),
                                          inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-            set_variable_component = SetVariableComponent("3",
-                                                          {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-            loop_group.add_workflow_comp("3", set_variable_component)
+            loop_group.add_workflow_comp("3", SetVariableComponent(
+                                                          {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
             loop_group.start_comp("1")
             loop_group.end_comp("3")
             loop_group.add_connection("1", "2")
@@ -480,8 +479,7 @@ class WorkflowTest(unittest.TestCase):
                                                                 {"user_var": "${input_number}"})
 
             loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
-                                 callbacks=[output_callback, intermediate_callback],
-                                 set_variable_components=[set_variable_component])
+                                 callbacks=[output_callback, intermediate_callback])
 
             flow.add_workflow_comp("l", loop)
 

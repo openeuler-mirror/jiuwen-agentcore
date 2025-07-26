@@ -12,9 +12,8 @@ from jiuwen.core.workflow.base import Workflow
 
 
 class ExecWorkflowComponent(WorkflowComponent, Executable, ExecWorkflowBase):
-    def __init__(self, node_id: str, sub_workflow: Workflow):
+    def __init__(self, sub_workflow: Workflow):
         super().__init__()
-        self.node_id = node_id
         self._sub_workflow = sub_workflow
 
     async def invoke(self, inputs: Input, context: Context) -> Output:

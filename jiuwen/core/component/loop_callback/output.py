@@ -3,19 +3,19 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from typing import Any
 
-from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
+from jiuwen.core.component.loop_callback.loop_callback import LoopCallback, INTERMEDIATE_LOOP_VAR
 from jiuwen.core.context.utils import is_ref_path, extract_origin_key, NESTED_PATH_SPLIT
 
+ROUND = "round"
 
 class OutputCallback(LoopCallback):
-    def __init__(self, node_id: str, outputs_format: dict[str, Any], round_result_root: str = None,
-                 result_root: str = None, intermediate_loop_var_root: str = None):
+    def __init__(self, node_id: str, outputs_format: dict[str, Any]):
         super().__init__()
         self._node_id = node_id
         self._outputs_format = outputs_format
-        self._round_result_root = round_result_root if round_result_root else node_id + NESTED_PATH_SPLIT + "round"
-        self._result_root = result_root if result_root else node_id
-        self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root else node_id + NESTED_PATH_SPLIT + "intermediateLoopVar"
+        self._round_result_root = node_id + NESTED_PATH_SPLIT + ROUND
+        self._result_root = node_id
+        self._intermediate_loop_var_root = node_id + NESTED_PATH_SPLIT + INTERMEDIATE_LOOP_VAR
 
     def _generate_results(self, results: list[(str, Any)]):
         for key, value in self._outputs_format.items():

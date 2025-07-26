@@ -139,7 +139,7 @@ class CheckpointTest(unittest.TestCase):
                                 "b": "${user.inputs.b}",
                                 "c": 1,
                                 "d": [1, 2, 3]})
-        flow.add_workflow_comp("a", ExecWorkflowComponent("a", subflow),
+        flow.add_workflow_comp("a", ExecWorkflowComponent(subflow),
                                inputs_schema={
                                    "aa": "${start.a}",
                                    "ac": "${start.c}"})
@@ -179,9 +179,8 @@ class CheckpointTest(unittest.TestCase):
         loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
         loop_group.add_workflow_comp("2", AddTenNode4Cp("2"),
                                      inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        set_variable_component = SetVariableComponent("3",
-                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-        loop_group.add_workflow_comp("3", set_variable_component)
+        loop_group.add_workflow_comp("3", SetVariableComponent(
+                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         loop_group.start_comp("1")
         loop_group.end_comp("3")
         loop_group.add_connection("1", "2")
@@ -192,8 +191,7 @@ class CheckpointTest(unittest.TestCase):
                                                             {"user_var": "${input_number}"})
 
         loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
-                             callbacks=[output_callback, intermediate_callback],
-                             set_variable_components=[set_variable_component])
+                             callbacks=[output_callback, intermediate_callback])
 
         flow.add_workflow_comp("l", loop)
 
@@ -269,9 +267,8 @@ class CheckpointTest(unittest.TestCase):
         loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
         loop_group.add_workflow_comp("2", InteractiveNode4Cp("2"),
                                      inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        set_variable_component = SetVariableComponent("3",
-                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-        loop_group.add_workflow_comp("3", set_variable_component)
+        loop_group.add_workflow_comp("3", SetVariableComponent(
+                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         loop_group.start_comp("1")
         loop_group.end_comp("3")
         loop_group.add_connection("1", "2")
@@ -282,8 +279,7 @@ class CheckpointTest(unittest.TestCase):
                                                             {"user_var": "${input_number}"})
 
         loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
-                             callbacks=[output_callback, intermediate_callback],
-                             set_variable_components=[set_variable_component])
+                             callbacks=[output_callback, intermediate_callback])
 
         flow.add_workflow_comp("l", loop)
 
