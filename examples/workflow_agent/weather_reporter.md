@@ -9,18 +9,18 @@
 | 概念                 | 定义                    | 适用场景                 |
 |--------------------|-----------------------|----------------------|
 | **Workflow Agent** | LLM 与工具按**预定义代码路径**编排 | 任务可拆成固定步骤，追求稳定 & 低延迟 |
-| **LLM Agent**      | LLM **动态决定**下一步骤与工具   | 步骤数量不可预期，需长期自主决策     |
+| **ReAct Agent**    | LLM **动态决定**下一步骤与工具   | 步骤数量不可预期，需长期自主决策     |
 
 本教程实现一个可直接运行Workflow的 **Workflow Agent**：  
-用户输入 → 意图识别 → 信息收集 → 调用天气 API → 返回结果
+用户输入 → 意图识别 → query改写 → 参数提取 → 调用天气 API → 返回结果
 
 ```angular2html
-用户说：上海天气如何
+用户说：查询上海的天气
 ├─▶ ① IntentDetection  →  判定意图 = 天气查询
-├─▶ ② LLM 抽取字段      →  {"location":"上海"}
-├─▶ ③ Questioner       →  补齐 日期=today
-├─▶ ④ Tool 调 API      →  {"result":"上海今天晴 30°C"}
-└─▶ ⑤ WorkflowAgent    →  返回给用户
+├─▶ ② LLM query改写     →  查询上海的天气 2025-07-26
+├─▶ ③ Questioner       →  参数提取 {"location": "shanghai", "date": "2025-07-26"}
+├─▶ ④ Tool 调 API       →  {"result":"{'city': 'Shanghai', 'country': 'CN', 'feels_like': 36.21, 'humidity': 86, 'temperature': 29.21, 'weather': '多云', 'wind_speed': 5.81}"}
+└─▶ ⑤ WorkflowAgent    →  输出天气查询的执行结果
 ```
 ![](../resource/workflow_agent.png)
 
@@ -42,7 +42,7 @@ pip install jiuwen
 from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from jiuwen.core.utils.tool.service_api.param import Param
 
-MOCK_TOOL = RestfulApi(
+weather_tool = RestfulApi(
     name="weather",
     description="查询天气",
     params=[
@@ -68,7 +68,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "")
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "")
 
 
-def _create_model_config() -> ModelConfig:
+def create_model_config() -> ModelConfig:
     return ModelConfig(
         model_provider=MODEL_PROVIDER,
         model_info=BaseModelInfo(
@@ -109,7 +109,7 @@ from jiuwen.core.utils.prompt.template.template import Template
 # ---------- 1. 意图识别 ----------
 def _create_intent_detection_component() -> IntentDetectionComponent:
     """创建意图识别组件。"""
-    model_config = RealWorkflowTest._create_model_config()
+    model_config = create_model_config()
     user_prompt = """
     {{user_prompt}}
 
@@ -127,30 +127,37 @@ def _create_intent_detection_component() -> IntentDetectionComponent:
     如果没有合适的分类，请输出 {{default_class}}。
     """
     config = IntentDetectionConfig(
-        user_prompt="请判断用户意图",
-        category_list=["分类1", "分类2"],
-        category_name_list=["旅游", "天气"],
-        default_class="分类1",
-        model=model_config,
-        intent_detection_template=Template(
-            name="default",
-            content=[{"role": "user", "content": user_prompt}],
-        ),
-        enable_input=True,
-    )
-    return IntentDetectionComponent(config)
+                user_prompt="请判断用户意图",
+                category_info="",
+                category_list=["分类1", "分类2"],
+                category_name_list=["默认意图", "查询某地天气"],
+                default_class="分类1",
+                model=model_config,
+                intent_detection_template=Template(
+                    name="default",
+                    content=[{"role": "user", "content": user_prompt}],
+                ),
+                enable_input=True,
+            )
+    component = IntentDetectionComponent(config)
+    component.add_branch("${intent.classificationId} == 0", ["end"], "默认分支")
+    component.add_branch("${intent.classificationId} == 1", ["llm"], "查询天气分支")
+    return component
 
 
 # ---------- 2. 大模型组件 ----------
 def _create_llm_component() -> LLMComponent:
     """创建 LLM 组件，仅用于抽取结构化字段（location/date）。"""
-    model_config = RealWorkflowTest._create_model_config()
+    model_config = create_model_config()
+    current_date = build_current_date()
+    user_prompt_prefix = "你是一个query改写的AI助手。今天的日期是{}。" 
+    user_prompt = "\n原始query为：{{query}}\n\n帮我改写原始query，要求：\n1. 只把地名改为英文，其他信息保留中文；\n2. 默认日期为今天；\n3. 时间为YYYY-MM-DD格式。"
     config = LLMCompConfig(
         model=model_config,
-        template_content=[{"role": "user", "content": "{{query}}"}],
-        response_format={"type": "json"},
+        template_content=[{"role": "user", "content": user_prompt_prefix.format(current_date) + user_prompt}],
+        response_format={"type": "text"},
         output_config={
-            "location": {"type": "string", "description": "地点", "required": True}
+            "query": {"type": "string", "description": "改写后的query", "required": True}
         },
     )
     return LLMComponent(config)
@@ -161,14 +168,9 @@ def _create_questioner_component() -> QuestionerComponent:
     """创建提问器组件。"""
     key_fields = [
         FieldInfo(field_name="location", description="地点", required=True),
-        FieldInfo(
-            field_name="date",
-            description="时间",
-            required=True,
-            default_value="today",
-        ),
+        FieldInfo(field_name="date", description="时间", required=True, default_value="today"),
     ]
-    model_config = RealWorkflowTest._create_model_config()
+    model_config = create_model_config()
     config = QuestionerConfig(
         model=model_config,
         question_content="",
@@ -187,7 +189,7 @@ def _create_questioner_component() -> QuestionerComponent:
 def _create_plugin_component() -> ToolComponent:
     """创建插件组件，可调用外部 RESTful API。"""
     tool_config = ToolComponentConfig(needValidate=False)
-    return ToolComponent(tool_config)
+    return ToolComponent(tool_config).set_tool(weather_tool)
 ```
 
 ---
@@ -217,33 +219,46 @@ def build_workflow():
     context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
 
     # 3. 实例化各组件
-    start = MockStartNode("start")
+    start = _create_start_component()
     intent = _create_intent_detection_component()
     llm = _create_llm_component()
     questioner = _create_questioner_component()
     plugin = _create_plugin_component()
-    end = MockEndNode("end")
-    branch = BranchComponent()
+    end = _create_end_component()
 
     # 4. 注册组件到工作流
-    flow.set_start_comp("start", start, inputs_schema={"query": "${query}"})
-    flow.add_workflow_comp("intent", intent, inputs_schema={"input": "${query}"})
-    flow.add_workflow_comp("llm", llm, inputs_schema={"userFields": {"query": "${start.query}"}})
-    flow.add_workflow_comp("questioner", questioner, inputs_schema={"query": "${start.query}"})
-    flow.add_workflow_comp("plugin", plugin, inputs_schema={
-        "userFields": "${questioner.userFields.key_fields}",
-        "validated": True,
-    })
-    flow.set_end_comp("end", end, inputs_schema={"output": "${plugin.result}"})
+    flow.set_start_comp(
+        "start",
+        start,
+        inputs_schema={"systemFields": {"query": "${query}"}},
+    )
+    flow.add_workflow_comp(
+        "intent",
+        intent,
+        inputs_schema={"input": "${start.systemFields.query}"},
+    )
+    flow.add_workflow_comp(
+        "llm",
+        llm,
+        inputs_schema={"userFields": {"query": "${start.systemFields.query}"}},
+    )
+    flow.add_workflow_comp(
+        "questioner",
+        questioner,
+        inputs_schema={"query": "${llm.userFields.query}"}
+    )
+    flow.add_workflow_comp(
+        "plugin",
+        plugin,
+        inputs_schema={
+            "userFields": "${questioner.userFields.key_fields}",
+            "validated": True,
+        },
+    )
+    flow.set_end_comp("end", end, inputs_schema={"userFields": {"output": "${plugin.result}"}})
 
-    # 5. 分支逻辑
-    flow.add_workflow_comp("branch", branch, inputs_schema={"res": "${intent.classificationId}"})
-    branch.add_branch("${intent.classificationId} == 1", ["llm"], "1")
-    branch.add_branch("${intent.classificationId} > 1", ["end"], "2")
-
-    # 6. 连接组件
+    # 5. 连接拓扑
     flow.add_connection("start", "intent")
-    flow.add_connection("intent", "branch")
     flow.add_connection("llm", "questioner")
     flow.add_connection("questioner", "plugin")
     flow.add_connection("plugin", "end")
@@ -257,7 +272,6 @@ def build_workflow():
 
 ```python
 from jiuwen.agent.workflow_agent import WorkflowAgent
-from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
 from jiuwen.core.context.agent_context import AgentContext
 
@@ -269,8 +283,8 @@ agent_config = WorkflowAgentConfig(
     workflows=[schema],
 )
 
-agent = WorkflowAgent(agent_config, agent_context=AgentContext())
-agent.bind_workflows([workflow])
+workflow_agent = WorkflowAgent(agent_config, agent_context=AgentContext())
+workflow_agent.bind_workflows([workflow])
 ```
 
 ---
@@ -284,9 +298,8 @@ import asyncio
 
 
 async def test_weather_workflow():
-    result = await agent.invoke({"query": "上海天气如何"})
-    assert result == {"output": "上海今天晴 30°C"}
-    print("✅ 测试通过：", result)
+    result = await workflow_agent.invoke({"query": "上海天气如何"})
+    print(f"Workflow Agent输出的最终结果：{result}")
 
 
 asyncio.run(test_weather_workflow())

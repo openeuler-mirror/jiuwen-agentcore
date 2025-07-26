@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime
 
 from jiuwen.agent.common.schema import PluginSchema
 from jiuwen.agent.react_agent import create_react_agent_config, create_react_agent, ReActAgent
@@ -14,12 +15,12 @@ API_KEY = os.getenv("API_KEY", "")
 MODEL_NAME = os.getenv("MODEL_NAME", "")
 MODEL_PROVIDER = os.getenv("MODEL_PROVIDER", "")
 
+def build_current_date():
+    current_datetime = datetime.now()
+    return current_datetime.strftime("%Y-%m-%d")
+
 
 class ReActAgentTest(unittest.IsolatedAsyncioTestCase):  # ① 关键改动
-    DEFAULT_TEMPLATE = [
-        dict(role="system", content="你是一个AI助手，在适当的时候调用合适的工具，帮助我完成任务！")
-    ]
-
     @staticmethod
     def _create_model():
         return ModelConfig(model_provider=MODEL_PROVIDER,
@@ -38,7 +39,8 @@ class ReActAgentTest(unittest.IsolatedAsyncioTestCase):  # ① 关键改动
             name="WeatherReporter",
             description="天气查询插件",
             params=[
-                Param(name="location", description="地点", type="string", required=True),
+                Param(name="location", description="天气查询的地点，必须为英文", type="string", required=True),
+                Param(name="date", description="天气查询的时间，格式为YYYY-MM-DD", type="string", required=True),
             ],
             path="http://127.0.0.1:9000/weather",
             headers={},
@@ -57,7 +59,12 @@ class ReActAgentTest(unittest.IsolatedAsyncioTestCase):  # ① 关键改动
                 "properties": {
                     "location": {
                         "type": "string",
-                        "description": "天气查询的地点",
+                        "description": "天气查询的地点。\n注意：地点名称必须为英文",
+                        "required": True
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "天气查询的时间，格式为YYYY-MM-DD",
                         "required": True
                     }
                 }
@@ -65,10 +72,17 @@ class ReActAgentTest(unittest.IsolatedAsyncioTestCase):  # ① 关键改动
         )
         return tool_info
 
+    @staticmethod
+    def _create_prompt_template():
+        system_prompt = "你是一个AI助手，在适当的时候调用合适的工具，帮助我完成任务！今天的日期为：{}\n注意：1. 如果用户请求中未指定具体时间，则默认为今天。"
+        return [
+            dict(role="system", content=system_prompt.format(build_current_date()))
+        ]
+
     async def test_react_agent_invoke_with_real_plugin(self):
         tools_schema = [self._create_tool_schema()]
         model_config = self._create_model()
-        prompt_template = self.DEFAULT_TEMPLATE
+        prompt_template = self._create_prompt_template()
 
         react_agent_config = create_react_agent_config(
             agent_id="react_agent_123",

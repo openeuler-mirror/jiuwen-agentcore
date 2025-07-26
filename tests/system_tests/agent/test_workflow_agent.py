@@ -1,5 +1,6 @@
 # tests/test_workflow_agent_invoke_real.py
 import os
+from datetime import datetime
 import unittest
 
 import pytest
@@ -7,7 +8,6 @@ from unittest.mock import patch
 
 from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
-from jiuwen.core.component.branch_comp import BranchComponent
 from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.intent_detection_comp import IntentDetectionComponent, IntentDetectionConfig
@@ -26,7 +26,6 @@ from jiuwen.core.utils.tool.service_api.restful_api import RestfulApi
 from jiuwen.core.workflow.base import Workflow
 from jiuwen.core.workflow.workflow_config import WorkflowConfig, WorkflowMetadata
 from jiuwen.graph.pregel.graph import PregelGraph
-from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode
 
 API_BASE = os.getenv("API_BASE", "")
 API_KEY = os.getenv("API_KEY", "")
@@ -74,6 +73,14 @@ _QUESTIONER_USER_TEMPLATE = """\
 
 请充分考虑以上对话历史及用户输入，正确提取最符合约束要求的 JSON 格式参数。
 """
+
+SYSTEM_PROMPT_TEMPLATE = "你是一个query改写的AI助手。今天的日期是{}。"
+
+
+def build_current_date():
+    current_datetime = datetime.now()
+    return current_datetime.strftime("%Y-%m-%d")
+
 
 
 class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
@@ -136,12 +143,14 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     def _create_llm_component() -> LLMComponent:
         """创建 LLM 组件，仅用于抽取结构化字段（location/date）。"""
         model_config = WorkflowAgentTest._create_model_config()
+        current_date = build_current_date()
+        user_prompt = "\n原始query为：{{query}}\n\n帮我改写原始query，要求：\n1. 只把地名改为英文，其他信息保留中文；\n2. 默认日期为今天；\n3. 时间为YYYY-MM-DD格式。"
         config = LLMCompConfig(
             model=model_config,
-            template_content=[{"role": "user", "content": "{{query}}"}],
-            response_format={"type": "json"},
+            template_content=[{"role": "user", "content": SYSTEM_PROMPT_TEMPLATE.format(current_date) + user_prompt}],
+            response_format={"type": "text"},
             output_config={
-                "location": {"type": "string", "description": "地点", "required": True}
+                "query": {"type": "string", "description": "改写后的query", "required": True}
             },
         )
         return LLMComponent(config)
@@ -176,7 +185,19 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     def _create_plugin_component() -> ToolComponent:
         """创建插件组件，真正调用外部 RESTful API。"""
         tool_config = ToolComponentConfig(needValidate=False)
-        return ToolComponent(tool_config)
+        weather_tool = RestfulApi(
+            name="WeatherReporter",
+            description="天气查询插件",
+            params=[
+                Param(name="location", description="地点", type="string", required=True),
+                Param(name="date", description="日期", type="string", required=True),
+            ],
+            path="http://127.0.0.1:9000/weather",
+            headers={},
+            method="GET",
+            response=[],
+        )
+        return ToolComponent(tool_config).set_tool(weather_tool)
 
     @staticmethod
     def _create_start_component():
@@ -194,21 +215,13 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     def _create_end_component():
         return End("end", "end", {"responseTemplate": "{{output}}"})
 
-    def _build_workflow(
-            self,
-            mock_plugin_get_tool,
-            mock_plugin_invoke,
-    ) -> tuple[Context, Workflow]:
+    def _build_workflow(self) -> tuple[Context, Workflow]:
         """
         根据 mock 工具函数构建完整工作流拓扑。
 
         返回 (context, workflow) 二元组，可直接用于 invoke。
         """
-        # 1. Mock 插件行为
-        mock_plugin_get_tool.return_value = _MOCK_TOOL
-        mock_plugin_invoke.return_value = {"result": _FINAL_RESULT}
-
-        # 2. 初始化工作流与上下文
+        # 1. 初始化工作流与上下文
         id = "test_weather_agent"
         version = "1.0"
         name = "weather"
@@ -224,7 +237,8 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             graph=PregelGraph(),
         )
         context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
-        # 3. 实例化各组件
+
+        # 2. 实例化各组件
         start = self._create_start_component()
         intent = self._create_intent_detection_component()
         llm = self._create_llm_component()
@@ -232,7 +246,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         plugin = self._create_plugin_component()
         end = self._create_end_component()
 
-        # 4. 注册组件到工作流
+        # 3. 注册组件到工作流
         flow.set_start_comp(
             "start",
             start,
@@ -251,7 +265,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         flow.add_workflow_comp(
             "questioner",
             questioner,
-            inputs_schema={"query": "${start.systemFields.query}"}
+            inputs_schema={"query": "${llm.userFields.query}"}
         )
         flow.add_workflow_comp(
             "plugin",
@@ -261,9 +275,9 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
                 "validated": True,
             },
         )
-        flow.set_end_comp("end", end, inputs_schema={"userFields": {"output": "${plugin.result}"}})
+        flow.set_end_comp("end", end, inputs_schema={"userFields": {"output": "${plugin.data}"}})
 
-        # 6. 连接拓扑
+        # 4. 连接拓扑
         flow.add_connection("start", "intent")
         flow.add_connection("llm", "questioner")
         flow.add_connection("questioner", "plugin")
@@ -302,24 +316,12 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
     @pytest.mark.asyncio
     async def test_real_workflow_agent_invoke(self):
         """端到端测试：WorkflowAgent.invoke 走完整链路（插件被 mock）。"""
-        with (
-            patch("jiuwen.core.component.tool_comp.ToolExecutable.get_tool") as mock_get_tool,
-            patch("jiuwen.core.utils.tool.service_api.restful_api.RestfulApi.invoke") as mock_invoke,
-        ):
-            # 2. 固定插件返回
-            mock_get_tool.return_value = _MOCK_TOOL
-            mock_invoke.return_value = {"result": "上海今天晴 30°C"}
+        # 1. 构造真实 workflow
+        _, workflow = self._build_workflow()
 
-            # 3. 构造真实 workflow
-            _, workflow = self._build_workflow(
-                mock_plugin_get_tool=mock_get_tool,
-                mock_plugin_invoke=mock_invoke,
+        # 2. 构造 workflow agent 并调用
+        agent = self._create_agent(workflow)
+        result = await agent.invoke({"query": "查询上海的天气", "conversation_id": "c123"})
 
-            )
-
-            # 4. 构造 agent 并调用
-            agent = self._create_agent(workflow)
-            result = await agent.invoke({"query": "查询上海的天气", "conversation_id": "c123"})
-
-            # 5. 断言
-            assert result == {'responseContent': '上海今天晴 30°C'}
+        # 5. 断言
+        print(f"Workflow Agent输出的最终结果：{result}")

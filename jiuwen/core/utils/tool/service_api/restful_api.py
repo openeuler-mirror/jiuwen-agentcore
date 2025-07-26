@@ -130,7 +130,7 @@ class RestfulApi(Tool):
             request_params.prepare_params()
             response = requests.request(
                 self.method, request_params.ip_address_url, headers=request_params.headers,
-                verify=False, stream=False, params=request_params.inputs,
+                verify=False, stream=False, params=request_params.query_params_in_inputs,
                 timeout=constant.REQUEST_TIMEOUT,
                 **request_params.request_arg
             )

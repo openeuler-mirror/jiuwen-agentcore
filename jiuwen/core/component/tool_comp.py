@@ -43,7 +43,8 @@ class ToolExecutable(Executable):
         self._tool: Tool = None
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
-        self._tool = self.get_tool(context)
+        if self._tool is None:
+            self._tool = self.get_tool(context)
         validated = inputs.get('validate', False)
         user_field = inputs.get('userFields', None)
         if self._config.needValidate and not validated:
@@ -75,6 +76,10 @@ class ToolExecutable(Executable):
 
     def get_tool(self, context: Context) -> Tool:
         pass
+
+    def set_tool(self, tool: Tool):
+        self._tool = tool
+        return self
 
     def get_tool_param(self):
         return self._tool.params
@@ -138,6 +143,11 @@ class ToolComponent(WorkflowComponent):
     def __init__(self, config: ToolComponentConfig):
         super().__init__()
         self._config = config
+        self._tool = None
 
     def to_executable(self) -> Executable:
-        return ToolExecutable(self._config)
+        return ToolExecutable(self._config).set_tool(self._tool)
+
+    def set_tool(self, tool: Tool):
+        self._tool = tool
+        return self
