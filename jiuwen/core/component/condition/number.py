@@ -8,9 +8,9 @@ from jiuwen.core.context.utils import NESTED_PATH_SPLIT
 
 
 class NumberCondition(Condition):
-    def __init__(self, node_id: str, limit: Union[str, int], index_path: str = None):
+    def __init__(self, node_id: str, limit: Union[str, int]):
         super().__init__()
-        self._index_path = index_path if index_path else node_id + NESTED_PATH_SPLIT + INDEX
+        self._index_path = node_id + NESTED_PATH_SPLIT + INDEX
         self._limit = limit
         self._node_id = node_id
 

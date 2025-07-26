@@ -11,15 +11,11 @@ from jiuwen.core.context.utils import extract_origin_key, is_ref_path
 from jiuwen.core.graph.executable import Executable, Input, Output
 
 
-class SetVariableComponent(WorkflowComponent, Executable, ContextSetter):
+class SetVariableComponent(WorkflowComponent, Executable):
 
-    def __init__(self, node_id: str, variable_mapping: dict[str, Any]):
+    def __init__(self, variable_mapping: dict[str, Any]):
         super().__init__()
-        self._node_id = node_id
         self._variable_mapping = variable_mapping
-
-    def set_context(self, context: Context):
-        self._context = NodeContext(context, self._node_id)
 
     async def invoke(self, inputs: Input, context: Context) -> Output:
         for left, right in self._variable_mapping.items():
@@ -28,9 +24,9 @@ class SetVariableComponent(WorkflowComponent, Executable, ContextSetter):
                 left_ref_str = left
             if isinstance(right, str) and is_ref_path(right):
                 ref_str = extract_origin_key(right)
-                self._context.state().update_io({left_ref_str: self._context.state().get(ref_str)})
+                context.state().update_io({left_ref_str: context.state().get(ref_str)})
                 continue
-            self._context.state().update_io({left_ref_str: right})
+            context.state().update_io({left_ref_str: right})
 
         return None
 

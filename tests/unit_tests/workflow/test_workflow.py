@@ -196,32 +196,29 @@ class WorkflowTest(unittest.TestCase):
                           inputs_schema={"array_result": "${b.array_result}", "user_var": "${b.user_var}"})
         flow.add_workflow_comp("a", CommonNode("a"),
                                inputs_schema={"array": "${input_array}"})
-        flow.add_workflow_comp("b", CommonNode("b"),
-                               inputs_schema={"array_result": "${l.results}", "user_var": "${l.user_var}"})
 
         # create  loop: (1->2->3)
         loop_group = LoopGroup(WorkflowConfig(), PregelGraph())
         loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
         loop_group.add_workflow_comp("2", AddTenNode("2"),
                                      inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        set_variable_component = SetVariableComponent("3",
-                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-        loop_group.add_workflow_comp("3", set_variable_component)
+        loop_group.add_workflow_comp("3", SetVariableComponent(
+            {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         loop_group.start_comp("1")
         loop_group.end_comp("3")
         loop_group.add_connection("1", "2")
         loop_group.add_connection("2", "3")
-        output_callback = OutputCallback("l",
-                                         {"results": "${1.result}", "user_var": "${l.intermediateLoopVar.user_var}"})
         intermediate_callback = IntermediateLoopVarCallback("l",
                                                             {"user_var": "${input_number}"})
+        output_callback = OutputCallback("l",
+                                         {"results": "${1.result}",
+                                          "user_var": "${l.intermediateLoopVar.user_var}"})
+        flow.add_workflow_comp("l", LoopComponent("l", loop_group, PregelGraph(),
+                                                  ArrayCondition("l", {"item": "${a.array}"}),
+                                                  callbacks=[output_callback, intermediate_callback]))
 
-        loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
-                             callbacks=[output_callback, intermediate_callback],
-                             set_variable_components=[set_variable_component])
-
-        flow.add_workflow_comp("l", loop)
-
+        flow.add_workflow_comp("b", CommonNode("b"),
+                               inputs_schema={"array_result": "${l.results}", "user_var": "${l.user_var}"})
         # s->a->(1->2->3)->b->e
         flow.add_connection("s", "a")
         flow.add_connection("a", "l")
@@ -249,9 +246,8 @@ class WorkflowTest(unittest.TestCase):
         loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.arrLoopVar.item}"})
         loop_group.add_workflow_comp("2", AddTenNode("2"),
                                      inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        set_variable_component = SetVariableComponent("3",
-                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-        loop_group.add_workflow_comp("3", set_variable_component)
+        loop_group.add_workflow_comp("3", SetVariableComponent(
+                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         break_node = BreakComponent()
         loop_group.add_workflow_comp("4", break_node)
         loop_group.start_nodes(["1"])
@@ -265,8 +261,7 @@ class WorkflowTest(unittest.TestCase):
                                                             {"user_var": "${input_number}"})
 
         loop = LoopComponent("l", loop_group, PregelGraph(), ArrayCondition("l", {"item": "${a.array}"}),
-                             callbacks=[output_callback, intermediate_callback], break_nodes=[break_node],
-                             set_variable_components=[set_variable_component])
+                             callbacks=[output_callback, intermediate_callback], break_nodes=[break_node])
 
         flow.add_workflow_comp("l", loop)
 
@@ -296,9 +291,8 @@ class WorkflowTest(unittest.TestCase):
         loop_group.add_workflow_comp("1", AddTenNode("1"), inputs_schema={"source": "${l.index}"})
         loop_group.add_workflow_comp("2", AddTenNode("2"),
                                      inputs_schema={"source": "${l.intermediateLoopVar.user_var}"})
-        set_variable_component = SetVariableComponent("3",
-                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"})
-        loop_group.add_workflow_comp("3", set_variable_component)
+        loop_group.add_workflow_comp("3", SetVariableComponent(
+                                                      {"${l.intermediateLoopVar.user_var}": "${2.result}"}))
         loop_group.start_nodes(["1"])
         loop_group.end_nodes(["3"])
         loop_group.add_connection("1", "2")
@@ -309,8 +303,7 @@ class WorkflowTest(unittest.TestCase):
                                                             {"user_var": "${input_number}"})
 
         loop = LoopComponent("l", loop_group, PregelGraph(), NumberCondition("l", "${loop_number}"),
-                             callbacks=[output_callback, intermediate_callback],
-                             set_variable_components=[set_variable_component])
+                             callbacks=[output_callback, intermediate_callback])
 
         flow.add_workflow_comp("l", loop)
 
@@ -505,7 +498,7 @@ class WorkflowTest(unittest.TestCase):
                                              "c": 1,
                                              "d": [1, 2, 3]})
 
-            main_workflow.add_workflow_comp("a", ExecWorkflowComponent("a", sub_workflow),
+            main_workflow.add_workflow_comp("a", ExecWorkflowComponent(sub_workflow),
                                             inputs_schema={
                                                 "aa": "${start.a}",
                                                 "ac": "${start.c}"})
@@ -541,7 +534,7 @@ class WorkflowTest(unittest.TestCase):
 
         # flow2: start->a1|composite->end
         flow1.add_workflow_comp("a1", Node1("a1"), inputs_schema={"value": "${start.a1}"})
-        flow1.add_workflow_comp("composite", ExecWorkflowComponent("composite", flow2),
+        flow1.add_workflow_comp("composite", ExecWorkflowComponent(flow2),
                                 inputs_schema={"result": "${start.a2}"})
 
         flow1.set_end_comp("end", MockEndNode("end"), inputs_schema={"b1": "${a1.value}", "b2": "${composite.result}"})

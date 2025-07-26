@@ -11,7 +11,6 @@ from jiuwen.core.component.condition.condition import Condition, AlwaysTrue, Fun
 from jiuwen.core.component.condition.expression import ExpressionCondition
 from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
 from jiuwen.core.component.loop_callback.loop_id import LoopIdCallback
-from jiuwen.core.component.set_variable_comp import SetVariableComponent
 from jiuwen.core.context.config import WorkflowConfig
 from jiuwen.core.context.context import Context, ContextSetter, NodeContext
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT
@@ -92,8 +91,7 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
     def __init__(self, node_id: str, body: Executable, new_graph: Graph,
                  condition: Union[str, Callable[[], bool], Condition] = None,
-                 break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None,
-                 set_variable_components: list[SetVariableComponent] = None):
+                 break_nodes: list[BreakComponent] = None, callbacks: list[LoopCallback] = None):
         ContextSetter.__init__(self)
         self._node_id = node_id
         self._body = body
@@ -131,7 +129,6 @@ class LoopComponent(WorkflowComponent, LoopController, ContextSetter, Executable
 
         self._context_setters: list[ContextSetter] = [self, self._condition]
         self._context_setters.extend(self._callbacks)
-        self._context_setters.extend(set_variable_components)
 
     def init(self):
         self._context.state().update_comp({self._context_root + NESTED_PATH_SPLIT + BROKEN: False})

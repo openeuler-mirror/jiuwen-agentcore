@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 
 from jiuwen.core.context.context import ContextSetter
 
+INTERMEDIATE_LOOP_VAR = "intermediateLoopVar"
 
 class LoopCallback(ContextSetter, ABC):
 

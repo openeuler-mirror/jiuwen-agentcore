@@ -14,7 +14,6 @@ DEFAULT_PATH_ARRAY_LOOP_VAR = "arrLoopVar"
 class ArrayCondition(Condition):
     def __init__(self, node_id: str, arrays: dict[str, Union[str, list[Any]]]):
         super().__init__()
-        self._node_id = node_id
         self._arrays = arrays
         self._index_path = node_id + NESTED_PATH_SPLIT + INDEX
         self._arrays_root = node_id + NESTED_PATH_SPLIT + DEFAULT_PATH_ARRAY_LOOP_VAR

@@ -3,18 +3,15 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
 from typing import Union, Any
 
-from jiuwen.core.component.loop_callback.loop_callback import LoopCallback
+from jiuwen.core.component.loop_callback.loop_callback import LoopCallback, INTERMEDIATE_LOOP_VAR
 from jiuwen.core.context.utils import NESTED_PATH_SPLIT, is_ref_path, extract_origin_key
 
 
 class IntermediateLoopVarCallback(LoopCallback):
-    def __init__(self, node_id: str, intermediate_loop_var: dict[str, Union[str, Any]],
-                 intermediate_loop_var_root: str = None):
+    def __init__(self, node_id: str, intermediate_loop_var: dict[str, Union[str, Any]]):
         super().__init__()
-        self._node_id = node_id
         self._intermediate_loop_var = intermediate_loop_var
-        self._intermediate_loop_var_root = intermediate_loop_var_root if intermediate_loop_var_root \
-            else node_id + NESTED_PATH_SPLIT + "intermediateLoopVar"
+        self._intermediate_loop_var_root = node_id + NESTED_PATH_SPLIT + INTERMEDIATE_LOOP_VAR
 
     def first_in_loop(self):
         for key, value in self._intermediate_loop_var.items():
