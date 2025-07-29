@@ -40,24 +40,3 @@ class WorkflowComponent(ABC):
 
     def to_executable(self) -> Executable:
         pass
-
-
-
-class ComponentAbility(Enum):
-    INVOKE = ("invoke", "batch in, batch out")
-    STREAM = ("stream", "batch in, stream out")
-    COLLECT = ("collect", "stream in, batch out")
-    TRANSFORM = ("transform", "stream in, stream out")
-
-    def __init__(self, name: str, desc: str):
-        self._name = name
-        self._desc = desc
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def desc(self) -> str:
-        return self._desc
-
