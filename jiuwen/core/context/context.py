@@ -44,6 +44,10 @@ class Context(ABC):
         pass
 
     @abstractmethod
+    def queue_manager(self) -> MessageQueueManager:
+        pass
+
+    @abstractmethod
     def session_id(self) -> str:
         pass
 
@@ -74,7 +78,7 @@ class WorkflowContext(Context):
         self.__stream_writer_manager: StreamWriterManager = None
         self.__controller_context_manager = None
         self.__session_id = session_id if session_id else uuid.uuid4().hex
-        self.queue_manager: MessageQueueManager = None
+        self.__queue_manager: MessageQueueManager = None
 
     def set_stream_writer_manager(self, stream_writer_manager: StreamWriterManager) -> None:
         if self.__stream_writer_manager is not None:
@@ -109,9 +113,12 @@ class WorkflowContext(Context):
         return self.__controller_context_manager
 
     def set_queue_manager(self, queue_manager: MessageQueueManager):
-        if self.queue_manager is not None:
+        if self.__queue_manager is not None:
             return
-        self.queue_manager = queue_manager
+        self.__queue_manager = queue_manager
+
+    def queue_manager(self) -> MessageQueueManager:
+        return self.__queue_manager
 
     def session_id(self) -> str:
         return self.__session_id
@@ -157,6 +164,9 @@ class NodeContext(Context):
 
     def controller_context_manager(self):
         return self.__context.controller_context_manager()
+
+    def queue_manager(self) -> MessageQueueManager:
+        return self.__context.queue_manager()
 
     def session_id(self) -> str:
         return self.__context.session_id()

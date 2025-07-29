@@ -8,6 +8,7 @@ from jiuwen.core.common.constants.constant import INTERACTIVE_INPUT, END_NODE_ST
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.logging.base import logger
 from jiuwen.core.component.condition.condition import INDEX
+from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.loop_callback.loop_id import LOOP_ID
 from jiuwen.core.component.exec_workflow_base import ExecWorkflowBase
 from jiuwen.core.context.context import Context, NodeContext
@@ -86,8 +87,8 @@ class Vertex:
         return results
 
     async def _pre_stream(self, ability: ComponentAbility) -> AsyncIterator[dict]:
-        queue_manager = self._context.parent_context().queue_manager
-        workflow_config = self._context.parent_context().config().get_workflow_config()
+        queue_manager = self._context.queue_manager()
+        workflow_config = self._context.config().get_workflow_config()
         inputs_transformer = workflow_config.comp_stream_configs[self._node_id].inputs_transformer
         inputs_schema = workflow_config.comp_stream_configs[self._node_id].inputs_schema
         async for message in queue_manager.consume(self._node_id, ability):
@@ -100,8 +101,8 @@ class Vertex:
             yield inputs
 
     async def _post_stream(self, results_iter: AsyncIterator) -> None:
-        queue_manager = self._context.parent_context().queue_manager
-        workflow_config = self._context.parent_context().config().get_workflow_config()
+        queue_manager = self._context.queue_manager()
+        workflow_config = self._context.config().get_workflow_config()
         output_transformer = workflow_config.comp_stream_configs[self._node_id].outputs_transformer
         output_schema = workflow_config.comp_stream_configs[self._node_id].outputs_schema
         end_stream_index = 0
@@ -115,19 +116,19 @@ class Vertex:
         await queue_manager.end_message(self._node_id)
 
     async def _process_chunk(self, end_stream_index: int, message: Any) -> None:
-        end_node = False
-        sub_graph = self._context.parent_id is not None
+        end_node = isinstance(self._executable, End)
+        sub_graph = self._context.parent_id() is not ''
         if end_node and not sub_graph:
             message_stream_data = {
                 "type": END_NODE_STREAM,
                 "index": ++end_stream_index,
                 "payload": message
             }
-            await self._context.parent_context().stream_writer_manager.get_output_writer().write(message_stream_data)
+            await self._context.stream_writer_manager().get_output_writer().write(message_stream_data)
         elif end_node and sub_graph:
-            await self._context.parent_context().queue_manager.sub_workflow_stream.send(message)
+            await self._context.queue_manager().sub_workflow_stream.send(message)
         else:
-            await self._context.parent_context().queue_manager.produce(self._node_id, message)
+            await self._context.queue_manager().produce(self._node_id, message)
 
 
     def __clear_interactive__(self) -> None:
@@ -148,14 +149,14 @@ class Vertex:
         if isinstance(self._executable, ExecWorkflowBase):
             self._context.tracer().register_workflow_span_manager(self._context.executable_id())
 
-    async def call(self, state: GraphState, config: Any = None, ExecGraphComponent=None):
+    async def call(self, state: GraphState, config: Any = None):
         if self._context is None or self._executable is None:
             raise JiuWenBaseException(1, "vertex is not initialized, node is is " + self._node_id)
 
         is_subgraph = self._executable.graph_invoker()
 
         try:
-            workflow_config = self._context.parent_context().config().get_workflow_config()
+            workflow_config = self._context.config().get_workflow_config()
             component_ability = workflow_config.comp_abilities.get(self._node_id)
             component_ability = component_ability if component_ability else [ComponentAbility.INVOKE]
             call_ability = [ability for ability in component_ability if
@@ -175,11 +176,11 @@ class Vertex:
         self._stream_called = True  # 标记 stream_call 已被调用
         self._stream_done.clear()  # 清除之前的完成状态
 
-        if self._context is None or self._context.parent_context().queue_manager is None:
+        if self._context is None or self._context.queue_manager() is None:
             raise JiuWenBaseException(1, "queue manager is not initialized")
 
         try:
-            workflow_config = self._context.parent_context().config().get_workflow_config()
+            workflow_config = self._context.config().get_workflow_config()
             component_ability = workflow_config.comp_abilities.get(self._node_id)
             call_ability = [ability for ability in component_ability if
                             ability in [ComponentAbility.COLLECT, ComponentAbility.TRANSFORM]]
