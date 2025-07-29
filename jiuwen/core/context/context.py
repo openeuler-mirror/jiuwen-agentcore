@@ -63,20 +63,17 @@ class Context(ABC):
     def set_queue_manager(self, queue_manager: MessageQueueManager):
         return
 
-    def clone(self) -> Self:
-        return None
-
 
 class WorkflowContext(Context):
     def __init__(self, state: State, config: Config = Config(), store: Store = None, tracer: Tracer = None,
-                 session_id: str = None):
+                 session_id: str = None, controller_context_manager: Any = None):
         self.__config = config
         self.__state = state
         self.__store = store
         self.__tracer = tracer
         self.__callback_manager = CallbackManager()
         self.__stream_writer_manager: StreamWriterManager = None
-        self.__controller_context_manager = None
+        self.__controller_context_manager = controller_context_manager
         self.__session_id = session_id if session_id else uuid.uuid4().hex
         self.__queue_manager: MessageQueueManager = None
 
@@ -122,9 +119,6 @@ class WorkflowContext(Context):
 
     def session_id(self) -> str:
         return self.__session_id
-
-    def clone(self) -> Self:
-        return WorkflowContext(state=self.state().clone(), session_id=self.session_id())
 
 
 class NodeContext(Context):

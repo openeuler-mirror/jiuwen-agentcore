@@ -4,10 +4,10 @@ from datetime import datetime
 import unittest
 
 import pytest
-from unittest.mock import patch
 
 from jiuwen.agent.common.schema import WorkflowSchema
 from jiuwen.agent.config.workflow_config import WorkflowAgentConfig
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.intent_detection_comp import IntentDetectionComponent, IntentDetectionConfig
@@ -16,9 +16,7 @@ from jiuwen.core.component.questioner_comp import QuestionerComponent, Questione
 from jiuwen.core.component.start_comp import Start
 from jiuwen.core.component.tool_comp import ToolComponent, ToolComponentConfig
 from jiuwen.core.context.agent_context import AgentContext
-from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import Context, WorkflowContext
-from jiuwen.core.context.state import InMemoryState
+from jiuwen.core.context.context import Context
 from jiuwen.core.utils.llm.base import BaseModelInfo
 from jiuwen.core.utils.prompt.template.template import Template
 from jiuwen.core.utils.tool.service_api.param import Param
@@ -236,7 +234,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
             workflow_config=workflow_config,
             graph=PregelGraph(),
         )
-        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
+        context = TaskContext(id="test")
 
         # 2. 实例化各组件
         start = self._create_start_component()
@@ -283,7 +281,7 @@ class WorkflowAgentTest(unittest.IsolatedAsyncioTestCase):
         flow.add_connection("questioner", "plugin")
         flow.add_connection("plugin", "end")
 
-        return context, flow
+        return context.create_workflow_context(), flow
 
     @staticmethod
     def _create_workflow_schema(id, name: str, version: str) -> WorkflowSchema:

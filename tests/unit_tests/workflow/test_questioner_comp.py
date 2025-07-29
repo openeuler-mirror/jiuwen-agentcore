@@ -2,13 +2,11 @@ import asyncio
 import unittest
 from unittest.mock import patch
 
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.component.common.configs.model_config import ModelConfig
 from jiuwen.core.component.end_comp import End
 from jiuwen.core.component.questioner_comp import FieldInfo, QuestionerConfig, QuestionerComponent
 from jiuwen.core.component.start_comp import Start
-from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import WorkflowContext, Context
-from jiuwen.core.context.state import InMemoryState
 from jiuwen.core.graph.executable import Input
 from jiuwen.core.graph.interrupt.interactive_input import InteractiveInput
 from jiuwen.core.stream.writer import TraceSchema
@@ -26,15 +24,15 @@ class QuestionerTest(unittest.TestCase):
         asyncio.set_event_loop(self.loop)
 
     @staticmethod
-    def invoke_workflow(inputs: Input, context: Context, flow: Workflow):
+    def invoke_workflow(inputs: Input, context: TaskContext, flow: Workflow):
         loop = asyncio.get_event_loop()
-        feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context))
+        feature = asyncio.ensure_future(flow.invoke(inputs=inputs, context=context.create_workflow_context()))
         loop.run_until_complete(feature)
         return feature.result()
 
     @staticmethod
     def _create_context(session_id):
-        return WorkflowContext(config=Config(), state=InMemoryState(), store=None, session_id=session_id)
+        return TaskContext(id=session_id)
 
     @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._invoke_llm_for_extraction")
     @patch("jiuwen.core.component.questioner_comp.QuestionerDirectReplyHandler._build_llm_inputs")
@@ -51,7 +49,7 @@ class QuestionerTest(unittest.TestCase):
         mock_llm_inputs.return_value = mock_prompt_template
         mock_extraction.return_value = dict(location="hangzhou")
 
-        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
+        context = TaskContext(id = "test")
         flow = create_flow()
 
         key_fields = [
@@ -185,7 +183,7 @@ class QuestionerTest(unittest.TestCase):
         mock_llm_inputs.return_value = mock_prompt_template
         mock_extraction.return_value = dict(location="hangzhou")
 
-        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
+        context = TaskContext(id = "test")
         flow = create_flow()
 
         key_fields = [
@@ -227,6 +225,7 @@ class QuestionerTest(unittest.TestCase):
                     _tracer_chunks.append(chunk)
 
         tracer_chunks = []
-        self.loop.run_until_complete(_async_stream_workflow_for_tracer(flow, {"query": "查询杭州的天气"}, context,
+        self.loop.run_until_complete(_async_stream_workflow_for_tracer(flow, {"query": "查询杭州的天气"},
+                                                                       context.create_workflow_context(),
                                                                        tracer_chunks))
         print(tracer_chunks)

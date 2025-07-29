@@ -2,10 +2,8 @@ from typing import List, Optional, Any, Dict
 from enum import Enum
 
 from jiuwen.core.agent.task.task import Task
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.context.agent_context import AgentContext
-from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import NodeContext, WorkflowContext
-from jiuwen.core.context.state import InMemoryState
 
 
 class TaskStatus(Enum):
@@ -31,11 +29,8 @@ class TaskManager:
         # 复用已有context
         if task_id in self._tasks:
             return self._tasks[task_id]
-
         # 新建context
-        context = WorkflowContext(config=Config(),
-                          state=InMemoryState(),
-                          store=self.agent_context.store)
+        context = TaskContext(id=task_id, store=self.agent_context.store)
         task = Task(task_id, context)
 
         self._tasks[task_id] = task

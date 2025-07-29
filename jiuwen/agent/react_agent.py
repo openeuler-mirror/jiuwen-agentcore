@@ -15,8 +15,8 @@ from jiuwen.core.agent.handler.base import AgentHandlerImpl, AgentHandlerInputs
 from jiuwen.agent.state.react_state import ReActState
 from jiuwen.core.agent.task.sub_task import SubTask
 from jiuwen.core.agent.task.task import Task
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.component.common.configs.model_config import ModelConfig
-from jiuwen.core.context.context import Context
 from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
 from jiuwen.core.utils.llm.messages import ToolMessage
 from jiuwen.core.utils.tool.base import Tool
@@ -92,7 +92,7 @@ class ReActAgent(Agent):
     async def stream(self, inputs: Dict) -> Iterator[Any]:
         pass
 
-    async def _execute_sub_tasks(self, context: Context):
+    async def _execute_sub_tasks(self, context: TaskContext):
         to_exec_sub_tasks = self._state.sub_tasks
         completed_sub_tasks = []
         for st in to_exec_sub_tasks:
@@ -103,7 +103,7 @@ class ReActAgent(Agent):
         self._update_chat_history_in_context(completed_sub_tasks, context)
         return completed_sub_tasks
 
-    def _load_state_from_context(self, context: Context):
+    def _load_state_from_context(self, context: TaskContext):
         state_dict = context.state().get(REACT_AGENT_STATE_KEY)
         if state_dict:
             self._state = ReActState.deserialize(state_dict)
@@ -113,7 +113,6 @@ class ReActAgent(Agent):
     def _store_state_to_context(self, context):
         state_dict = self._state.serialize()
         context.state().update({REACT_AGENT_STATE_KEY: state_dict})
-        context.state().commit()
 
     @staticmethod
     def _update_chat_history_in_context(completed_sub_tasks: List[SubTask], context):
