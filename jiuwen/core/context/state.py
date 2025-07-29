@@ -1,7 +1,6 @@
 #!/usr/bin/python3.10
 # coding: utf-8
 # Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved
-import uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any, Union, Optional, Callable, Self
@@ -179,9 +178,6 @@ class State(ABC):
         self._global_state.set_updates(updates.get(GLOBAL_STATE_UPDATES_KEY))
         self._comp_state.set_updates(updates.get(COMP_STATE_UPDATES_KEY))
 
-    def clone(self) -> Self:
-        pass
-
 
 class InMemoryStateLike(StateLike):
     def __init__(self):
@@ -210,8 +206,8 @@ class InMemoryStateLike(StateLike):
 
 
 class InMemoryCommitState(CommitState):
-    def __init__(self):
-        self._state = InMemoryStateLike()
+    def __init__(self, state: StateLike = None):
+        self._state = state if not state else InMemoryStateLike()
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
@@ -259,6 +255,3 @@ class InMemoryState(State):
                          global_state=global_state,
                          trace_state=dict(),
                          comp_state=InMemoryCommitState())
-
-    def clone(self) -> Self:
-        return InMemoryState(global_state=self._global_state)

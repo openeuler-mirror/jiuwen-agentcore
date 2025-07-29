@@ -19,13 +19,12 @@ from jiuwen.core.context.state import ReadableStateLike
 from jiuwen.core.graph.base import Graph
 from jiuwen.core.graph.executable import Input
 from jiuwen.core.graph.graph_state import GraphState
-from jiuwen.core.workflow.base import Workflow
-from jiuwen.core.workflow.workflow_config import WorkflowConfig, ComponentAbility
+from jiuwen.core.workflow.workflow_config import ComponentAbility
 from jiuwen.core.stream.base import BaseStreamMode
 from jiuwen.core.stream.writer import CustomSchema
 from jiuwen.core.workflow.base import WorkflowConfig, Workflow
 from jiuwen.graph.pregel.graph import PregelGraph
-from test_mock_node import SlowNode, CountNode, StreamCompNode, CollectCompNode, MultiCollectCompNode, TransformCompNode
+from test_mock_node import SlowNode, CountNode, StreamCompNode, CollectCompNode, TransformCompNode
 from test_node import AddTenNode, CommonNode
 from tests.unit_tests.workflow.test_mock_node import MockStartNode, MockEndNode, Node1, StreamNode
 

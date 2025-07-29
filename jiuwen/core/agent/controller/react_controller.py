@@ -14,9 +14,9 @@ from jiuwen.core.agent.controller.base import ControllerOutput, ControllerInput,
 from jiuwen.core.agent.handler.base import AgentHandler
 from jiuwen.agent.config.base import AgentConfig
 from jiuwen.core.agent.task.sub_task import SubTask
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.common.exception.exception import JiuWenBaseException
 from jiuwen.core.common.exception.status_code import StatusCode
-from jiuwen.core.context.context import Context
 from jiuwen.core.context.controller_context.controller_context_manager import ControllerContextMgr
 from jiuwen.core.utils.llm.messages import BaseMessage, ToolInfo, Function, Parameters, HumanMessage, AIMessage, \
     ToolCall
@@ -63,7 +63,7 @@ class ReActControllerUtils:
         pass
 
     @staticmethod
-    def get_dialogue_history_from_context(context: Context):
+    def get_dialogue_history_from_context(context: TaskContext):
         if hasattr(context, "context_manager"):
             chat_history = context.context_manager.message_mgr.get_chat_history()
         else:
@@ -78,7 +78,6 @@ class ReActControllerUtils:
         else:
             # TODO: 临时存储对话历史
             context.state().update({DIALOGUE_HISTORY_KEY: current_messages})
-            context.state().commit()
 
     @staticmethod
     def json_loads(arguments: str):
@@ -99,7 +98,7 @@ class ReActController(Controller):
         self._model = self._init_model()
         self._output_parser = self._init_output_parser()
 
-    def invoke(self, inputs: ReActControllerInput, context: Context) -> ReActControllerOutput:
+    def invoke(self, inputs: ReActControllerInput, context: TaskContext) -> ReActControllerOutput:
         query = inputs.query
         user_fields = inputs.user_fields
         chat_history = self._get_latest_chat_history(context)
@@ -113,7 +112,7 @@ class ReActController(Controller):
     def set_agent_handler(self, agent_handler: AgentHandler):
         self._agent_handler = agent_handler
 
-    def _get_latest_chat_history(self, context: Context) -> List[BaseMessage]:
+    def _get_latest_chat_history(self, context: TaskContext) -> List[BaseMessage]:
         chat_history = ReActControllerUtils.get_dialogue_history_from_context(context)
         chat_history = chat_history[-2 * self._config.constrain.reserved_max_chat_rounds:]
         return chat_history
@@ -189,7 +188,7 @@ class ReActController(Controller):
                                         model_info=self._config.model.model_info)
 
     @staticmethod
-    def _update_llm_response_to_context(llm_output: AIMessage, chat_history: List[BaseMessage], context: Context):
+    def _update_llm_response_to_context(llm_output: AIMessage, chat_history: List[BaseMessage], context: TaskContext):
         if llm_output:
             chat_history.append(llm_output)
         ReActControllerUtils.set_dialogue_history_to_context(chat_history, context)

@@ -397,7 +397,6 @@ class QuestionerExecutable(Executable):
     def _store_state_to_context(state: QuestionerState, context):
         state_dict = state.serialize()
         context.state().update({QUESTIONER_STATE_KEY: state_dict})
-        context.state().commit()
 
     def state(self, state: QuestionerState):
         self._state = state

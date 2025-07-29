@@ -1,9 +1,9 @@
 from jiuwen.agent.common.enum import TaskStatus
-from jiuwen.core.context.context import Context
+from jiuwen.core.agent.task.task_context import TaskContext
 
 
 class Task:
-    def __init__(self, task_id: str, context: Context):
+    def __init__(self, task_id: str, context: TaskContext):
         self.task_id = task_id
         self.context = context
         self.status: TaskStatus = TaskStatus.PENDING

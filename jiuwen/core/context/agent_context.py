@@ -1,8 +1,7 @@
-from jiuwen.core.context.context import Context
-from jiuwen.core.context.state import State
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.context.store import Store
 
 
 class AgentContext:
-    context_map: dict[str, Context] = {}
+    context_map: dict[str, TaskContext] = {}
     store: Store = None

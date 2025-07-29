@@ -1,12 +1,8 @@
 import asyncio
 import unittest
 
+from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.context.config import Config
-from jiuwen.core.context.context import WorkflowContext
-from jiuwen.core.context.state import InMemoryState
-from jiuwen.core.stream.emitter import StreamEmitter
-from jiuwen.core.stream.manager import StreamWriterManager
 from jiuwen.core.stream.writer import TraceSchema, CustomSchema
 from jiuwen.core.tracer.tracer import Tracer
 from tests.unit_tests.tracer.test_mock_node_with_tracer import StreamNodeWithTracer
@@ -69,8 +65,7 @@ class MockAgent(unittest.TestCase):
         """
 
         # workflow与agent共用一个tracer
-        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
-        context.set_tracer(tracer)
+        context = TaskContext(id="test")
 
         # async def stream_workflow():
         flow = create_flow()
@@ -115,7 +110,7 @@ class MockAgent(unittest.TestCase):
         }
         index_dict = {key: 0 for key in expected_datas_model.keys()}
 
-        async for chunk in flow.stream({"a": 1, "b": "haha"}, context):
+        async for chunk in flow.stream({"a": 1, "b": "haha"}, context.create_workflow_context()):
             if not isinstance(chunk, TraceSchema):
                 node_id = chunk.node_id
                 index = index_dict[node_id]
@@ -128,12 +123,8 @@ class MockAgent(unittest.TestCase):
 
     async def run_agent_workflow_seq_exec_stream_workflow_with_tracer(self):
         # context手动初始化tracer，agent和workflow共用一个tracer
-        context = WorkflowContext(config=Config(), state=InMemoryState(), store=None)
-        context.set_stream_writer_manager(StreamWriterManager(StreamEmitter()))
-        tracer = Tracer()
-        tracer.init(context.stream_writer_manager(), context.callback_manager())
-        context.set_tracer(tracer)
-        self.tracer = tracer
+        context = TaskContext(id="test")
+        self.tracer = context.tracer()
 
         agent_span = self.tracer.tracer_agent_span_manager.create_agent_span()
         try:
