@@ -3,8 +3,7 @@ import unittest
 
 from jiuwen.core.agent.task.task_context import TaskContext
 from jiuwen.core.common.logging.base import logger
-from jiuwen.core.stream.writer import TraceSchema, CustomSchema
-from jiuwen.core.tracer.tracer import Tracer
+from jiuwen.core.stream.writer import CustomSchema
 from tests.unit_tests.tracer.test_mock_node_with_tracer import StreamNodeWithTracer
 from tests.unit_tests.tracer.test_workflow import record_tracer_info, create_flow
 from tests.unit_tests.workflow.test_mock_node import MockEndNode, MockStartNode
@@ -59,15 +58,15 @@ class MockAgent(unittest.TestCase):
     def tearDown(self):
         record_tracer_info(self.tracer_chunks, "test_agent_workflow_seq_exec_stream_workflow_with_tracer.json")
 
-    async def run_workflow_seq_exec_stream_workflow_with_tracer(self, tracer: Tracer):
+    async def run_workflow_seq_exec_stream_workflow_with_tracer(self, context: TaskContext):
         """
         start -> a -> b -> end
         """
 
         # workflow与agent共用一个tracer
-        context = TaskContext(id="test")
+        workflow_context = context.create_workflow_context()
+        assert (workflow_context.tracer() is self.tracer)
 
-        # async def stream_workflow():
         flow = create_flow()
         flow.set_start_comp("start", MockStartNode("start"),
                             inputs_schema={
@@ -110,16 +109,12 @@ class MockAgent(unittest.TestCase):
         }
         index_dict = {key: 0 for key in expected_datas_model.keys()}
 
-        async for chunk in flow.stream({"a": 1, "b": "haha"}, context.create_workflow_context()):
-            if not isinstance(chunk, TraceSchema):
-                node_id = chunk.node_id
-                index = index_dict[node_id]
-                assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
-                logger.info(f"stream chunk: {chunk}")
-                index_dict[node_id] = index_dict[node_id] + 1
-            else:
-                print(f"stream chunk: {chunk}")
-                self.tracer_chunks.append(chunk)
+        async for chunk in flow.stream({"a": 1, "b": "haha"}, workflow_context):
+            node_id = chunk.node_id
+            index = index_dict[node_id]
+            assert chunk == expected_datas_model[node_id][index], f"Mismatch at node {node_id} index {index}"
+            logger.info(f"stream chunk: {chunk}")
+            index_dict[node_id] = index_dict[node_id] + 1
 
     async def run_agent_workflow_seq_exec_stream_workflow_with_tracer(self):
         # context手动初始化tracer，agent和workflow共用一个tracer
@@ -138,7 +133,7 @@ class MockAgent(unittest.TestCase):
                 await runner.stream(runner_span)
 
             # 模拟运行workflow
-            await self.run_workflow_seq_exec_stream_workflow_with_tracer(context.tracer())
+            await self.run_workflow_seq_exec_stream_workflow_with_tracer(context)
 
             await self.tracer.trigger("tracer_agent", "on_chain_end", span=agent_span,
                                       outputs={"outputs": "mock chain"},

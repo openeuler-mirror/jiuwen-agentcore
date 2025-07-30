@@ -400,7 +400,23 @@ class WorkflowTest(unittest.TestCase):
             sub_workflow.add_connection("sub_start", "sub_a")
             sub_workflow.add_connection("sub_a", "sub_end")
 
-            sub_workflow_2 = copy.deepcopy(sub_workflow)
+            sub_workflow_2 = create_flow()
+            sub_workflow_2.set_start_comp("sub_start", MockStartNode("start"),
+                                          inputs_schema={
+                                              "a": "${a}",
+                                              "b": "${b}",
+                                              "c": 1,
+                                              "d": [1, 2, 3]})
+
+            sub_workflow_2.add_workflow_comp("sub_a", StreamNodeWithTracer("a", expected_datas),
+                                             inputs_schema={
+                                                 "aa": "${sub2_start.a}",
+                                                 "ac": "${sub2_start.c}"})
+            sub_workflow_2.set_end_comp("sub_end", MockEndNode("end"),
+                                        inputs_schema={
+                                            "result": "${sub_a.aa}"})
+            sub_workflow_2.add_connection("sub_start", "sub_a")
+            sub_workflow_2.add_connection("sub_a", "sub_end")
 
             # main_workflow: start->a(sub workflow) | b(sub workflow) ->end
             main_workflow = create_flow()
