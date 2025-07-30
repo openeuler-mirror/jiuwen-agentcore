@@ -38,10 +38,7 @@ def create_graph() -> Graph:
 
 
 def create_flow() -> Workflow:
-    return Workflow(workflow_config=DEFAULT_WORKFLOW_CONFIG, graph=create_graph())
-
-
-DEFAULT_WORKFLOW_CONFIG = WorkflowConfig()
+    return Workflow(workflow_config=WorkflowConfig(), graph=create_graph())
 
 
 class WorkflowTest(unittest.TestCase):

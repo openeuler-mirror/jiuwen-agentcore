@@ -48,13 +48,14 @@ def create_graph() -> Graph:
 
 
 def create_flow() -> Workflow:
-    return Workflow(workflow_config=DEFAULT_WORKFLOW_CONFIG, graph=create_graph())
-
-
-DEFAULT_WORKFLOW_CONFIG = WorkflowConfig()
+    return Workflow(workflow_config=WorkflowConfig(), graph=create_graph())
 
 
 class CheckpointTest(unittest.TestCase):
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
     def invoke_workflow(self, inputs: Input, context: Context, flow: Workflow):
         return asyncio.run(flow.invoke(inputs=inputs, context=context))
 
