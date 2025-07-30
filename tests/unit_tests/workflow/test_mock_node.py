@@ -206,7 +206,7 @@ class StreamCompNode(MockNodeBase):
         self._node_id = node_id
 
     async def stream(self, inputs: Input, context: Context) -> AsyncIterator[Output]:
-        logger.info(f"===StreamCompNode[{self._node_id}], input: {inputs}")
+        logger.debug(f"===StreamCompNode[{self._node_id}], input: {inputs}")
         if inputs is None:
             yield 1
         else:

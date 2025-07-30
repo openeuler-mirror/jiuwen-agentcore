@@ -60,7 +60,8 @@ class BaseWorkFlow:
             stream_outputs_schema: dict = None,
             stream_inputs_transformer: Transformer = None,
             stream_outputs_transformer: Transformer = None,
-            comp_ability: list[ComponentAbility] = None
+            comp_ability: list[ComponentAbility] = None,
+            response_mode: str = None
     ) -> Self:
         if not isinstance(workflow_comp, WorkflowComponent):
             workflow_comp = self._convert_to_component(workflow_comp)
@@ -79,6 +80,12 @@ class BaseWorkFlow:
             if ability in [ComponentAbility.STREAM, ComponentAbility.TRANSFORM, ComponentAbility.COLLECT]:
                 if not wait_for_all:
                     raise JiuWenBaseException(-1, "stream components need to wait for all")
+        if response_mode is not None:
+            if "streaming" == response_mode:
+                self._workflow_config.comp_abilities[
+                    comp_id] =  [ComponentAbility.STREAM, ComponentAbility.TRANSFORM]
+            else:
+                self._workflow_config.comp_abilities[comp_id] = [ComponentAbility.INVOKE]
         return self
 
     def start_comp(
@@ -151,6 +158,7 @@ class Workflow(BaseWorkFlow):
             stream_outputs_schema: dict = None,
             stream_inputs_transformer: Transformer = None,
             stream_outputs_transformer: Transformer = None,
+            response_mode: str = None,
     ) -> Self:
         self.add_workflow_comp(end_comp_id, component, wait_for_all=False, inputs_schema=inputs_schema,
                                outputs_schema=outputs_schema,
@@ -159,7 +167,8 @@ class Workflow(BaseWorkFlow):
                                stream_inputs_schema=stream_inputs_schema,
                                stream_outputs_schema=stream_outputs_schema,
                                stream_inputs_transformer=stream_inputs_transformer,
-                               stream_outputs_transformer=stream_outputs_transformer
+                               stream_outputs_transformer=stream_outputs_transformer,
+                               response_mode=response_mode
                                )
         self.end_comp(end_comp_id)
         self._end_comp_id = end_comp_id
