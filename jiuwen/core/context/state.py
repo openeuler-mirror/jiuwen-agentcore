@@ -207,7 +207,7 @@ class InMemoryStateLike(StateLike):
 
 class InMemoryCommitState(CommitState):
     def __init__(self, state: StateLike = None):
-        self._state = state if not state else InMemoryStateLike()
+        self._state = state if state else InMemoryStateLike()
         self._updates: dict[str, list[dict]] = dict()
 
     def update(self, node_id: str, data: dict) -> None:
